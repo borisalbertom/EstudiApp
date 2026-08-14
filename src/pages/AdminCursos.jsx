@@ -13,6 +13,9 @@ export default function AdminCursos() {
   const [descripcion, setDescripcion] = useState('')
   const [visibilidad, setVisibilidad] = useState('publico')
   const [organizacionId, setOrganizacionId] = useState('')
+  const [permiteDuelos, setPermiteDuelos] = useState(true)
+  const [permiteIndividual, setPermiteIndividual] = useState(false)
+  const [mostrarRanking, setMostrarRanking] = useState(true)
   const [creando, setCreando] = useState(false)
   const [error, setError] = useState('')
 
@@ -47,6 +50,9 @@ export default function AdminCursos() {
       visibilidad,
       organizacion_id: visibilidad === 'privado' ? organizacionId || null : null,
       creado_por: perfil.id,
+      permite_duelos: permiteDuelos,
+      permite_individual: permiteIndividual,
+      mostrar_ranking: mostrarRanking,
     })
 
     if (error) setError('No se pudo crear el curso.')
@@ -55,6 +61,9 @@ export default function AdminCursos() {
       setDescripcion('')
       setVisibilidad('publico')
       setOrganizacionId('')
+      setPermiteDuelos(true)
+      setPermiteIndividual(false)
+      setMostrarRanking(true)
       cargarCursos()
     }
     setCreando(false)
@@ -125,6 +134,36 @@ export default function AdminCursos() {
               ))}
             </select>
           )}
+
+          <div className="flex flex-col gap-2 text-sm text-slate-600 border-t border-slate-100 pt-3">
+            <label className="flex items-center gap-1.5">
+              <input
+                type="checkbox"
+                checked={permiteDuelos}
+                onChange={(e) => setPermiteDuelos(e.target.checked)}
+                className="accent-indigo-600"
+              />
+              Permitir duelos entre amigos
+            </label>
+            <label className="flex items-center gap-1.5">
+              <input
+                type="checkbox"
+                checked={permiteIndividual}
+                onChange={(e) => setPermiteIndividual(e.target.checked)}
+                className="accent-indigo-600"
+              />
+              Permitir modo individual (evaluación / nota)
+            </label>
+            <label className="flex items-center gap-1.5">
+              <input
+                type="checkbox"
+                checked={mostrarRanking}
+                onChange={(e) => setMostrarRanking(e.target.checked)}
+                className="accent-indigo-600"
+              />
+              Mostrar ranking
+            </label>
+          </div>
 
           {error && <p className="text-xs text-red-500">{error}</p>}
 

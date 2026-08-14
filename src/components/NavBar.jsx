@@ -4,7 +4,6 @@ import { useAuth } from '../contexts/AuthContext'
 const links = [
   { to: '/', label: 'Inicio' },
   { to: '/amigos', label: 'Amigos' },
-  { to: '/ranking', label: 'Ranking' },
   { to: '/perfil', label: 'Perfil' },
 ]
 

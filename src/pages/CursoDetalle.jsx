@@ -28,7 +28,11 @@ export default function CursoDetalle() {
   async function cargarCurso() {
     setCargando(true)
     const [{ data: cursoData }, { data: temasData }] = await Promise.all([
-      supabase.from('cursos').select('id, nombre, descripcion').eq('id', id).single(),
+      supabase
+        .from('cursos')
+        .select('id, nombre, descripcion, permite_duelos, permite_individual, mostrar_ranking')
+        .eq('id', id)
+        .single(),
       supabase.from('temas').select('id, nombre, orden').eq('curso_id', id).order('orden', { ascending: true }),
     ])
     setCurso(cursoData)
@@ -143,7 +147,14 @@ export default function CursoDetalle() {
       <NavBar />
       <main className="max-w-3xl mx-auto px-4 py-6">
         <Link to="/" className="text-xs text-slate-400 hover:text-indigo-600">← Volver a cursos</Link>
-        <h1 className="text-xl font-semibold text-slate-800 mt-2">{curso.nombre}</h1>
+        <div className="flex items-center justify-between mt-2">
+          <h1 className="text-xl font-semibold text-slate-800">{curso.nombre}</h1>
+          {curso.mostrar_ranking && (
+            <Link to={`/curso/${id}/ranking`} className="text-xs text-indigo-600 hover:underline">
+              Ver ranking
+            </Link>
+          )}
+        </div>
         {curso.descripcion && <p className="text-sm text-slate-500 mt-1">{curso.descripcion}</p>}
 
         {error && <p className="text-xs text-red-500 mt-4">{error}</p>}
@@ -159,17 +170,29 @@ export default function CursoDetalle() {
         <div className="flex flex-col gap-2">
           {temas.map((t) => (
             <div key={t.id} className="bg-white border border-slate-200 rounded-xl p-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <p className="font-medium text-slate-800">{t.nombre}</p>
-                <button
-                  onClick={() => setTemaRetando(temaRetando === t.id ? null : t.id)}
-                  className="text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded-md"
-                >
-                  Retar a un amigo
-                </button>
+                <div className="flex gap-2 shrink-0">
+                  {curso.permite_individual && (
+                    <Link
+                      to={`/curso/${id}/tema/${t.id}/individual`}
+                      className="text-xs bg-slate-100 text-slate-600 px-3 py-1 rounded-md"
+                    >
+                      Practicar solo
+                    </Link>
+                  )}
+                  {curso.permite_duelos && (
+                    <button
+                      onClick={() => setTemaRetando(temaRetando === t.id ? null : t.id)}
+                      className="text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded-md"
+                    >
+                      Retar a un amigo
+                    </button>
+                  )}
+                </div>
               </div>
 
-              {temaRetando === t.id && (
+              {temaRetando === t.id && curso.permite_duelos && (
                 <div className="mt-3 border-t border-slate-100 pt-3">
                   {amigos.length === 0 ? (
                     <p className="text-xs text-slate-400">

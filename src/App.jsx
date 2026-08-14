@@ -4,11 +4,12 @@ import RutaProtegida from './components/RutaProtegida'
 import Login from './pages/Login'
 import Home from './pages/Home'
 import Amigos from './pages/Amigos'
-import Ranking from './pages/Ranking'
 import Perfil from './pages/Perfil'
 import CursoDetalle from './pages/CursoDetalle'
 import JugarDuelo from './pages/JugarDuelo'
 import ResultadoDuelo from './pages/ResultadoDuelo'
+import PracticaIndividual from './pages/PracticaIndividual'
+import RankingCurso from './pages/RankingCurso'
 import AdminCursos from './pages/AdminCursos'
 import AdminCurso from './pages/AdminCurso'
 
@@ -51,18 +52,26 @@ export default function App() {
             }
           />
           <Route
-            path="/amigos"
+            path="/curso/:cursoId/tema/:temaId/individual"
             element={
               <RutaProtegida>
-                <Amigos />
+                <PracticaIndividual />
               </RutaProtegida>
             }
           />
           <Route
-            path="/ranking"
+            path="/curso/:id/ranking"
             element={
               <RutaProtegida>
-                <Ranking />
+                <RankingCurso />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/amigos"
+            element={
+              <RutaProtegida>
+                <Amigos />
               </RutaProtegida>
             }
           />

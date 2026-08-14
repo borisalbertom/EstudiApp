@@ -24,7 +24,11 @@ export default function AdminCurso() {
   async function cargarCurso() {
     setCargando(true)
     const [{ data: cursoData }, { data: temasData }] = await Promise.all([
-      supabase.from('cursos').select('id, nombre').eq('id', id).single(),
+      supabase
+        .from('cursos')
+        .select('id, nombre, permite_duelos, permite_individual, mostrar_ranking')
+        .eq('id', id)
+        .single(),
       supabase.from('temas').select('id, nombre, orden').eq('curso_id', id).order('orden', { ascending: true }),
     ])
     setCurso(cursoData)
@@ -74,6 +78,11 @@ export default function AdminCurso() {
     cargarPreguntas(temaId)
   }
 
+  async function actualizarConfig(campo, valor) {
+    setCurso((prev) => ({ ...prev, [campo]: valor }))
+    await supabase.from('cursos').update({ [campo]: valor }).eq('id', id)
+  }
+
   if (!perfil?.es_admin_plataforma) {
     return (
       <div className="min-h-screen bg-slate-50">
@@ -100,6 +109,37 @@ export default function AdminCurso() {
       <main className="max-w-3xl mx-auto px-4 py-6">
         <Link to="/admin" className="text-xs text-slate-400 hover:text-indigo-600">← Volver a cursos</Link>
         <h1 className="text-xl font-semibold text-slate-800 mt-2 mb-4">{curso?.nombre}</h1>
+
+        <div className="bg-white border border-slate-200 rounded-xl p-4 mb-6 flex flex-col gap-2">
+          <p className="text-sm font-medium text-slate-700 mb-1">Configuración del curso</p>
+          <label className="flex items-center gap-1.5 text-sm text-slate-600">
+            <input
+              type="checkbox"
+              checked={curso?.permite_duelos || false}
+              onChange={(e) => actualizarConfig('permite_duelos', e.target.checked)}
+              className="accent-indigo-600"
+            />
+            Permitir duelos entre amigos
+          </label>
+          <label className="flex items-center gap-1.5 text-sm text-slate-600">
+            <input
+              type="checkbox"
+              checked={curso?.permite_individual || false}
+              onChange={(e) => actualizarConfig('permite_individual', e.target.checked)}
+              className="accent-indigo-600"
+            />
+            Permitir modo individual (evaluación / nota)
+          </label>
+          <label className="flex items-center gap-1.5 text-sm text-slate-600">
+            <input
+              type="checkbox"
+              checked={curso?.mostrar_ranking || false}
+              onChange={(e) => actualizarConfig('mostrar_ranking', e.target.checked)}
+              className="accent-indigo-600"
+            />
+            Mostrar ranking
+          </label>
+        </div>
 
         <form onSubmit={crearTema} className="bg-white border border-slate-200 rounded-xl p-4 mb-6 flex gap-2">
           <input
