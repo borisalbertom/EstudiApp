@@ -90,9 +90,14 @@ export default function AdminCursos() {
       <main className="max-w-3xl mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-4">
           <p className="text-lg font-medium text-slate-800">Administrar cursos</p>
-          <Link to="/admin/organizaciones" className="text-xs text-indigo-600 hover:underline">
-            Organizaciones →
-          </Link>
+          <div className="flex gap-3">
+            <Link to="/admin/logros" className="text-xs text-indigo-600 hover:underline">
+              Logros →
+            </Link>
+            <Link to="/admin/organizaciones" className="text-xs text-indigo-600 hover:underline">
+              Organizaciones →
+            </Link>
+          </div>
         </div>
 
         <form onSubmit={crearCurso} className="bg-white border border-slate-200 rounded-xl p-4 mb-6 flex flex-col gap-3">

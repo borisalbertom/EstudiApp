@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import NavBar from '../components/NavBar'
@@ -7,7 +8,22 @@ export default function Perfil() {
   const { perfil, session, recargarPerfil } = useAuth()
   const [subiendo, setSubiendo] = useState(false)
   const [error, setError] = useState('')
+  const [totalLogros, setTotalLogros] = useState(0)
+  const [logrosObtenidos, setLogrosObtenidos] = useState(0)
   const inputRef = useRef(null)
+
+  useEffect(() => {
+    cargarResumenLogros()
+  }, [])
+
+  async function cargarResumenLogros() {
+    const [{ count: total }, { count: obtenidos }] = await Promise.all([
+      supabase.from('logros').select('id', { count: 'exact', head: true }),
+      supabase.from('logros_usuario').select('id', { count: 'exact', head: true }).eq('usuario_id', perfil.id),
+    ])
+    setTotalLogros(total || 0)
+    setLogrosObtenidos(obtenidos || 0)
+  }
 
   async function subirAvatar(e) {
     const file = e.target.files?.[0]
@@ -78,6 +94,14 @@ export default function Perfil() {
               <p className="text-lg font-medium text-slate-800">{perfil?.es_premium ? 'Premium' : 'Gratis'}</p>
             </div>
           </div>
+
+          <Link
+            to="/logros"
+            className="mt-3 flex items-center justify-between bg-slate-50 hover:bg-indigo-50 rounded-lg p-3"
+          >
+            <span className="text-sm text-slate-700">🏆 Logros</span>
+            <span className="text-sm text-indigo-600">{logrosObtenidos}/{totalLogros} →</span>
+          </Link>
         </div>
       </main>
     </div>
