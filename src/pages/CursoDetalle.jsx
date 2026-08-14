@@ -2,9 +2,8 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { crearDuelo } from '../lib/duelos'
 import NavBar from '../components/NavBar'
-
-const DIAS_SIN_REPETIR = 14
 
 export default function CursoDetalle() {
   const { id } = useParams()
@@ -59,70 +58,22 @@ export default function CursoDetalle() {
     setCreandoDuelo(true)
     setError('')
 
-    try {
-      const dificultad = dificultadDe(temaId)
-      let consultaPreguntas = supabase.from('preguntas').select('id').eq('tema_id', temaId).eq('activa', true)
-      if (dificultad !== 'todas') consultaPreguntas = consultaPreguntas.eq('dificultad', dificultad)
-      const { data: preguntasTema } = await consultaPreguntas
+    const { dueloId, error: errorCreacion } = await crearDuelo({
+      cursoId: id,
+      temaId,
+      cantidadPreguntas: curso.cantidad_preguntas || 5,
+      dificultad: dificultadDe(temaId),
+      jugador1Id: perfil.id,
+      jugador2Id: amigoId,
+    })
 
-      const idsDisponibles = (preguntasTema || []).map((p) => p.id)
-      if (idsDisponibles.length === 0) {
-        setError('Este tema no tiene preguntas activas con esa dificultad.')
-        setCreandoDuelo(false)
-        return
-      }
-
-      const desde = new Date()
-      desde.setDate(desde.getDate() - DIAS_SIN_REPETIR)
-
-      const { data: historial } = await supabase
-        .from('historial_preguntas')
-        .select('pregunta_id')
-        .eq('usuario_id', perfil.id)
-        .eq('respondido_bien', true)
-        .gte('respondido_en', desde.toISOString())
-
-      const cantidadPreguntas = curso.cantidad_preguntas || 5
-      const idsRecientes = new Set((historial || []).map((h) => h.pregunta_id))
-      let pool = idsDisponibles.filter((pid) => !idsRecientes.has(pid))
-      if (pool.length < cantidadPreguntas) pool = idsDisponibles
-
-      const elegidas = mezclar(pool).slice(0, Math.min(cantidadPreguntas, pool.length))
-
-      const { data: duelo, error: errorDuelo } = await supabase
-        .from('duelos')
-        .insert({
-          curso_id: id,
-          tema_id: temaId,
-          tipo: 'async',
-          jugador_1: perfil.id,
-          jugador_2: amigoId,
-          estado: 'en_curso',
-          cantidad_preguntas: elegidas.length,
-        })
-        .select('id')
-        .single()
-
-      if (errorDuelo) throw errorDuelo
-
-      const filas = elegidas.map((pid, i) => ({ duelo_id: duelo.id, pregunta_id: pid, orden: i + 1 }))
-      const { error: errorPreguntas } = await supabase.from('duelo_preguntas').insert(filas)
-      if (errorPreguntas) throw errorPreguntas
-
-      navigate(`/duelo/${duelo.id}`)
-    } catch (e) {
-      setError('No se pudo crear el duelo. Intenta de nuevo.')
+    if (errorCreacion) {
+      setError(errorCreacion)
       setCreandoDuelo(false)
+      return
     }
-  }
 
-  function mezclar(arr) {
-    const copia = [...arr]
-    for (let i = copia.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1))
-      ;[copia[i], copia[j]] = [copia[j], copia[i]]
-    }
-    return copia
+    navigate(`/duelo/${dueloId}`)
   }
 
   if (cargando) {

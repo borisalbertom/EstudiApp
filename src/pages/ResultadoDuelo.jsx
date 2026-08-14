@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { crearDuelo } from '../lib/duelos'
 import NavBar from '../components/NavBar'
 
 export default function ResultadoDuelo() {
   const { id } = useParams()
   const { perfil } = useAuth()
+  const navigate = useNavigate()
 
   const [duelo, setDuelo] = useState(null)
   const [jugador1, setJugador1] = useState(null)
@@ -16,6 +18,8 @@ export default function ResultadoDuelo() {
   const [respondio1, setRespondio1] = useState(0)
   const [respondio2, setRespondio2] = useState(0)
   const [cargando, setCargando] = useState(true)
+  const [creandoRevancha, setCreandoRevancha] = useState(false)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     cargarResultado()
@@ -26,7 +30,7 @@ export default function ResultadoDuelo() {
 
     const { data: dueloData } = await supabase
       .from('duelos')
-      .select('id, jugador_1, jugador_2, estado, cantidad_preguntas')
+      .select('id, curso_id, tema_id, jugador_1, jugador_2, estado, cantidad_preguntas, abandonado_por')
       .eq('id', id)
       .single()
 
@@ -62,6 +66,29 @@ export default function ResultadoDuelo() {
     setCargando(false)
   }
 
+  async function pedirRevancha() {
+    const rivalId = perfil.id === duelo.jugador_1 ? duelo.jugador_2 : duelo.jugador_1
+    setCreandoRevancha(true)
+    setError('')
+
+    const { dueloId, error: errorCreacion } = await crearDuelo({
+      cursoId: duelo.curso_id,
+      temaId: duelo.tema_id,
+      cantidadPreguntas: duelo.cantidad_preguntas,
+      dificultad: 'todas',
+      jugador1Id: perfil.id,
+      jugador2Id: rivalId,
+    })
+
+    if (errorCreacion) {
+      setError(errorCreacion)
+      setCreandoRevancha(false)
+      return
+    }
+
+    navigate(`/duelo/${dueloId}`)
+  }
+
   if (cargando) {
     return (
       <div className="min-h-screen bg-slate-50">
@@ -90,7 +117,14 @@ export default function ResultadoDuelo() {
   const yoTermine = soyJugador1 ? terminoJugador1 : terminoJugador2
   const rivalTermino = soyJugador1 ? terminoJugador2 : terminoJugador1
 
-  const ganoJugador1 = terminoJugador1 && terminoJugador2 && puntaje1 !== puntaje2 ? puntaje1 > puntaje2 : null
+  const abandonoJugador1 = duelo.abandonado_por === duelo.jugador_1
+  const abandonoJugador2 = duelo.abandonado_por === duelo.jugador_2
+
+  const ganoJugador1 = duelo.abandonado_por
+    ? abandonoJugador2
+    : terminoJugador1 && terminoJugador2 && puntaje1 !== puntaje2
+      ? puntaje1 > puntaje2
+      : null
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -107,6 +141,8 @@ export default function ResultadoDuelo() {
               termino={terminoJugador1}
               esGanador={ganoJugador1 === true}
               esYo={soyJugador1}
+              abandono={abandonoJugador1}
+              rivalAbandono={abandonoJugador2}
             />
             <TarjetaJugador
               nombre={jugador2?.nombre}
@@ -115,20 +151,28 @@ export default function ResultadoDuelo() {
               termino={terminoJugador2}
               esGanador={ganoJugador1 === false}
               esYo={!soyJugador1}
+              abandono={abandonoJugador2}
+              rivalAbandono={abandonoJugador1}
             />
           </div>
 
-          {!rivalTermino && (
+          {duelo.abandonado_por && (
+            <p className="text-xs text-slate-500 text-center mt-5 font-medium">
+              🏳️ Duelo terminado por abandono
+            </p>
+          )}
+
+          {!duelo.abandonado_por && !rivalTermino && (
             <p className="text-xs text-slate-400 text-center mt-5">
               Esperando a que tu rival responda para conocer al ganador.
             </p>
           )}
 
-          {terminoJugador1 && terminoJugador2 && ganoJugador1 === null && (
+          {!duelo.abandonado_por && terminoJugador1 && terminoJugador2 && ganoJugador1 === null && (
             <p className="text-xs text-slate-500 text-center mt-5 font-medium">¡Empate! 🤝</p>
           )}
 
-          {!yoTermine && (
+          {!duelo.abandonado_por && !yoTermine && (
             <Link
               to={`/duelo/${id}`}
               className="block text-center bg-indigo-600 text-white text-sm rounded-lg py-2 mt-5"
@@ -136,6 +180,16 @@ export default function ResultadoDuelo() {
               Continuar respondiendo
             </Link>
           )}
+
+          {error && <p className="text-xs text-red-500 text-center mt-3">{error}</p>}
+
+          <button
+            onClick={pedirRevancha}
+            disabled={creandoRevancha}
+            className="w-full text-center bg-slate-100 text-slate-700 text-sm rounded-lg py-2 mt-3 disabled:opacity-50"
+          >
+            {creandoRevancha ? 'Creando revancha...' : '🔁 Revancha'}
+          </button>
         </div>
 
         <Link to="/" className="block text-center text-xs text-slate-400 hover:text-indigo-600 mt-4">
@@ -146,7 +200,7 @@ export default function ResultadoDuelo() {
   )
 }
 
-function TarjetaJugador({ nombre, puntaje, total, termino, esGanador, esYo }) {
+function TarjetaJugador({ nombre, puntaje, total, termino, esGanador, esYo, abandono, rivalAbandono }) {
   return (
     <div
       className={`rounded-lg p-4 text-center border ${
@@ -157,9 +211,12 @@ function TarjetaJugador({ nombre, puntaje, total, termino, esGanador, esYo }) {
         {nombre} {esYo && '(tú)'}
       </p>
       <p className="text-2xl font-semibold text-slate-800">
-        {termino ? `${puntaje}/${total}` : '—'}
+        {abandono ? '🏳️' : termino ? `${puntaje}/${total}` : '—'}
       </p>
-      {!termino && <p className="text-xs text-slate-400 mt-1">Sin responder aún</p>}
+      {abandono && <p className="text-xs text-slate-400 mt-1">Abandonó</p>}
+      {!abandono && !termino && (
+        <p className="text-xs text-slate-400 mt-1">{rivalAbandono ? 'No alcanzó a responder' : 'Sin responder aún'}</p>
+      )}
       {esGanador && <p className="text-xs text-indigo-600 mt-1 font-medium">🏆 Ganador</p>}
     </div>
   )

@@ -61,9 +61,24 @@ export default function Home() {
     )
   }
 
+  async function abandonarDuelo(dueloId) {
+    const confirmado = window.confirm('¿Seguro que quieres abandonar este duelo? Tu rival gana automáticamente.')
+    if (!confirmado) return
+
+    await supabase
+      .from('duelos')
+      .update({ estado: 'finalizado', finalizado_en: new Date().toISOString(), abandonado_por: perfil.id })
+      .eq('id', dueloId)
+
+    cargarDuelos()
+  }
+
   const cursosFiltrados = cursos
     .filter((c) => !soloGratis || c.visibilidad === 'publico')
     .filter((c) => c.nombre.toLowerCase().includes(busqueda.trim().toLowerCase()))
+
+  const hoy = new Date().toISOString().slice(0, 10)
+  const rachaEnRiesgo = perfil?.racha_actual > 0 && perfil?.ultima_actividad !== hoy
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -73,6 +88,12 @@ export default function Home() {
           <p className="text-lg font-medium text-slate-800">Hola, {perfil?.nombre} 👋</p>
           <p className="text-sm text-slate-500">🔥 Racha de {perfil?.racha_actual || 0} días</p>
         </div>
+
+        {rachaEnRiesgo && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-6 text-sm text-amber-700">
+            ⚠️ Tu racha de {perfil.racha_actual} días está en riesgo — juega hoy para no perderla.
+          </div>
+        )}
 
         {duelos.length > 0 && (
           <div className="mb-6">
@@ -85,29 +106,36 @@ export default function Home() {
                 const etiqueta = d.estado === 'finalizado' ? 'Ver resultado' : d.meToca ? 'Te toca jugar' : 'Esperando rival'
 
                 return (
-                  <Link
+                  <div
                     key={d.id}
-                    to={destino}
-                    className={`rounded-xl p-3 flex items-center justify-between border ${
-                      d.meToca
-                        ? 'bg-indigo-50 border-indigo-300'
-                        : 'bg-white border-slate-200 hover:border-indigo-300'
+                    className={`rounded-xl border ${
+                      d.meToca ? 'bg-indigo-50 border-indigo-300' : 'bg-white border-slate-200 hover:border-indigo-300'
                     }`}
                   >
-                    <div>
-                      <span className={`text-sm ${d.meToca ? 'text-indigo-900 font-medium' : 'text-slate-700'}`}>
-                        vs {nombreRival}
+                    <Link to={destino} className="p-3 flex items-center justify-between">
+                      <div>
+                        <span className={`text-sm ${d.meToca ? 'text-indigo-900 font-medium' : 'text-slate-700'}`}>
+                          vs {nombreRival}
+                        </span>
+                        <p className="text-xs text-slate-400">{d.cursos?.nombre}</p>
+                      </div>
+                      <span
+                        className={`text-xs px-2 py-1 rounded-md whitespace-nowrap ${
+                          d.meToca ? 'bg-indigo-600 text-white font-medium' : 'bg-indigo-50 text-indigo-600'
+                        }`}
+                      >
+                        {etiqueta}
                       </span>
-                      <p className="text-xs text-slate-400">{d.cursos?.nombre}</p>
-                    </div>
-                    <span
-                      className={`text-xs px-2 py-1 rounded-md whitespace-nowrap ${
-                        d.meToca ? 'bg-indigo-600 text-white font-medium' : 'bg-indigo-50 text-indigo-600'
-                      }`}
-                    >
-                      {etiqueta}
-                    </span>
-                  </Link>
+                    </Link>
+                    {d.estado !== 'finalizado' && (
+                      <button
+                        onClick={() => abandonarDuelo(d.id)}
+                        className="text-xs text-slate-400 hover:text-red-500 px-3 pb-2"
+                      >
+                        Abandonar duelo
+                      </button>
+                    )}
+                  </div>
                 )
               })}
             </div>
