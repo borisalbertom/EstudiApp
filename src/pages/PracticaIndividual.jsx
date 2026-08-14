@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, useSearchParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import NavBar from '../components/NavBar'
@@ -8,6 +8,8 @@ const DIAS_SIN_REPETIR = 14
 
 export default function PracticaIndividual() {
   const { cursoId, temaId } = useParams()
+  const [searchParams] = useSearchParams()
+  const dificultad = searchParams.get('dificultad') || 'todas'
   const { perfil, recargarPerfil } = useAuth()
 
   const [curso, setCurso] = useState(null)
@@ -45,15 +47,17 @@ export default function PracticaIndividual() {
     setCurso(cursoData)
     setTema(temaData)
 
-    const { data: preguntasTema } = await supabase
+    let consultaPreguntas = supabase
       .from('preguntas')
       .select('id, enunciado, alternativas, correcta')
       .eq('tema_id', temaId)
       .eq('activa', true)
+    if (dificultad !== 'todas') consultaPreguntas = consultaPreguntas.eq('dificultad', dificultad)
+    const { data: preguntasTema } = await consultaPreguntas
 
     const idsDisponibles = preguntasTema || []
     if (idsDisponibles.length === 0) {
-      setError('Este tema todavía no tiene preguntas activas.')
+      setError('Este tema no tiene preguntas activas con esa dificultad.')
       setCargando(false)
       return
     }

@@ -18,6 +18,11 @@ export default function CursoDetalle() {
   const [temaRetando, setTemaRetando] = useState(null)
   const [creandoDuelo, setCreandoDuelo] = useState(false)
   const [error, setError] = useState('')
+  const [dificultadPorTema, setDificultadPorTema] = useState({})
+
+  function dificultadDe(temaId) {
+    return dificultadPorTema[temaId] || 'todas'
+  }
 
   useEffect(() => {
     cargarCurso()
@@ -55,15 +60,14 @@ export default function CursoDetalle() {
     setError('')
 
     try {
-      const { data: preguntasTema } = await supabase
-        .from('preguntas')
-        .select('id')
-        .eq('tema_id', temaId)
-        .eq('activa', true)
+      const dificultad = dificultadDe(temaId)
+      let consultaPreguntas = supabase.from('preguntas').select('id').eq('tema_id', temaId).eq('activa', true)
+      if (dificultad !== 'todas') consultaPreguntas = consultaPreguntas.eq('dificultad', dificultad)
+      const { data: preguntasTema } = await consultaPreguntas
 
       const idsDisponibles = (preguntasTema || []).map((p) => p.id)
       if (idsDisponibles.length === 0) {
-        setError('Este tema todavía no tiene preguntas activas.')
+        setError('Este tema no tiene preguntas activas con esa dificultad.')
         setCreandoDuelo(false)
         return
       }
@@ -172,10 +176,20 @@ export default function CursoDetalle() {
             <div key={t.id} className="bg-white border border-slate-200 rounded-xl p-4">
               <div className="flex items-center justify-between gap-2">
                 <p className="font-medium text-slate-800">{t.nombre}</p>
-                <div className="flex gap-2 shrink-0">
+                <div className="flex items-center gap-2 shrink-0">
+                  <select
+                    value={dificultadDe(t.id)}
+                    onChange={(e) => setDificultadPorTema((prev) => ({ ...prev, [t.id]: e.target.value }))}
+                    className="text-xs border border-slate-200 rounded-md px-1.5 py-1 text-slate-600"
+                  >
+                    <option value="todas">Todas</option>
+                    <option value="facil">Fácil</option>
+                    <option value="media">Media</option>
+                    <option value="dificil">Difícil</option>
+                  </select>
                   {curso.permite_individual && (
                     <Link
-                      to={`/curso/${id}/tema/${t.id}/individual`}
+                      to={`/curso/${id}/tema/${t.id}/individual?dificultad=${dificultadDe(t.id)}`}
                       className="text-xs bg-slate-100 text-slate-600 px-3 py-1 rounded-md"
                     >
                       Practicar solo
