@@ -6,6 +6,7 @@ export default function Login() {
   const [modo, setModo] = useState('ingresar') // 'ingresar' | 'registrar'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [mostrarPassword, setMostrarPassword] = useState(false)
   const [nombre, setNombre] = useState('')
   const [error, setError] = useState('')
   const [cargando, setCargando] = useState(false)
@@ -68,15 +69,24 @@ export default function Login() {
             className="border border-slate-300 rounded-lg px-3 py-2 text-sm"
             required
           />
-          <input
-            type="password"
-            placeholder="Contraseña"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="border border-slate-300 rounded-lg px-3 py-2 text-sm"
-            required
-            minLength={6}
-          />
+          <div className="relative">
+            <input
+              type={mostrarPassword ? 'text' : 'password'}
+              placeholder="Contraseña"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 pr-10 text-sm"
+              required
+              minLength={6}
+            />
+            <button
+              type="button"
+              onClick={() => setMostrarPassword(!mostrarPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600"
+            >
+              {mostrarPassword ? 'Ocultar' : 'Ver'}
+            </button>
+          </div>
 
           {error && <p className="text-red-500 text-xs">{error}</p>}
 

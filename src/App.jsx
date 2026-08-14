@@ -9,6 +9,8 @@ import Perfil from './pages/Perfil'
 import CursoDetalle from './pages/CursoDetalle'
 import JugarDuelo from './pages/JugarDuelo'
 import ResultadoDuelo from './pages/ResultadoDuelo'
+import AdminCursos from './pages/AdminCursos'
+import AdminCurso from './pages/AdminCurso'
 
 export default function App() {
   return (
@@ -69,6 +71,22 @@ export default function App() {
             element={
               <RutaProtegida>
                 <Perfil />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <RutaProtegida>
+                <AdminCursos />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/admin/curso/:id"
+            element={
+              <RutaProtegida>
+                <AdminCurso />
               </RutaProtegida>
             }
           />

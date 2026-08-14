@@ -9,6 +9,8 @@ export default function Home() {
   const [cursos, setCursos] = useState([])
   const [duelos, setDuelos] = useState([])
   const [cargando, setCargando] = useState(true)
+  const [busqueda, setBusqueda] = useState('')
+  const [soloGratis, setSoloGratis] = useState(false)
 
   useEffect(() => {
     cargarCursos()
@@ -35,6 +37,10 @@ export default function Home() {
 
     setDuelos(data || [])
   }
+
+  const cursosFiltrados = cursos
+    .filter((c) => !soloGratis || c.visibilidad === 'publico')
+    .filter((c) => c.nombre.toLowerCase().includes(busqueda.trim().toLowerCase()))
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -70,19 +76,43 @@ export default function Home() {
           </div>
         )}
 
-        <p className="text-sm font-medium text-slate-700 mb-2">Cursos disponibles</p>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-sm font-medium text-slate-700">Cursos disponibles</p>
+          <label className="flex items-center gap-1.5 text-xs text-slate-500">
+            <input
+              type="checkbox"
+              checked={soloGratis}
+              onChange={(e) => setSoloGratis(e.target.checked)}
+              className="accent-indigo-600"
+            />
+            Solo gratis
+          </label>
+        </div>
+
+        <input
+          type="text"
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          placeholder="Buscar curso por nombre"
+          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mb-3"
+        />
 
         {cargando && <p className="text-sm text-slate-400">Cargando cursos...</p>}
 
         {!cargando && cursos.length === 0 && (
           <div className="bg-white border border-slate-200 rounded-xl p-4 text-sm text-slate-500">
-            Todavía no hay cursos creados. Un administrador debe crear el primero (ej. PAES) directamente
-            en Supabase mientras armamos el panel de administración.
+            Todavía no hay cursos creados.
+          </div>
+        )}
+
+        {!cargando && cursos.length > 0 && cursosFiltrados.length === 0 && (
+          <div className="bg-white border border-slate-200 rounded-xl p-4 text-sm text-slate-500">
+            No hay cursos que calcen con tu búsqueda.
           </div>
         )}
 
         <div className="flex flex-col gap-2">
-          {cursos.map((c) => (
+          {cursosFiltrados.map((c) => (
             <Link
               key={c.id}
               to={`/curso/${c.id}`}

@@ -10,13 +10,16 @@ const links = [
 
 export default function NavBar() {
   const { perfil, cerrarSesion } = useAuth()
+  const todosLosLinks = perfil?.es_admin_plataforma
+    ? [...links, { to: '/admin', label: 'Admin' }]
+    : links
 
   return (
     <header className="border-b border-slate-200 bg-white sticky top-0 z-10">
       <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
         <span className="font-semibold text-slate-800">🎯 EstudiApp</span>
         <nav className="flex items-center gap-4 text-sm">
-          {links.map((l) => (
+          {todosLosLinks.map((l) => (
             <NavLink
               key={l.to}
               to={l.to}
