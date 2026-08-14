@@ -6,7 +6,6 @@ import { supabase } from '../lib/supabase'
 const links = [
   { to: '/', label: 'Inicio' },
   { to: '/amigos', label: 'Amigos' },
-  { to: '/perfil', label: 'Perfil' },
 ]
 
 export default function NavBar() {
@@ -51,11 +50,9 @@ export default function NavBar() {
     setDuelosPendientes(pendientes.length)
   }
 
-  const primerNombre = perfil?.nombre?.split(' ')[0]
-  const conNombre = links.map((l) => (l.to === '/perfil' ? { ...l, label: primerNombre || 'Perfil' } : l))
   const todosLosLinks = perfil?.es_admin_plataforma
-    ? [...conNombre, { to: '/admin', label: 'Admin' }]
-    : conNombre
+    ? [...links, { to: '/admin', label: 'Admin' }]
+    : links
 
   const notificaciones = { '/': duelosPendientes, '/amigos': solicitudesPendientes }
 
@@ -81,6 +78,15 @@ export default function NavBar() {
             </NavLink>
           ))}
           <span className="text-slate-300 hidden sm:inline">|</span>
+          <NavLink
+            to="/perfil"
+            className={({ isActive }) =>
+              `shrink-0 ${isActive ? 'text-indigo-600 font-medium' : 'text-slate-500 hover:text-slate-800'}`
+            }
+          >
+            <span className="sm:hidden">{perfil?.nombre?.split(' ')[0]}</span>
+            <span className="hidden sm:inline">{perfil?.nombre}</span>
+          </NavLink>
           <button onClick={cerrarSesion} className="shrink-0 text-slate-400 hover:text-slate-700 text-xs border border-slate-200 rounded-md px-2 py-1">
             Salir
           </button>
