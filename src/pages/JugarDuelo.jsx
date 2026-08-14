@@ -6,7 +6,7 @@ import NavBar from '../components/NavBar'
 
 export default function JugarDuelo() {
   const { id } = useParams()
-  const { perfil } = useAuth()
+  const { perfil, recargarPerfil } = useAuth()
   const navigate = useNavigate()
 
   const [duelo, setDuelo] = useState(null)
@@ -111,6 +111,7 @@ export default function JugarDuelo() {
 
     if (siguienteIndice >= preguntas.length) {
       await verificarSiAmbosTerminaron()
+      recargarPerfil()
       setMostrarResultado(true)
       return
     }

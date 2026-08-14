@@ -8,7 +8,7 @@ const DIAS_SIN_REPETIR = 14
 
 export default function PracticaIndividual() {
   const { cursoId, temaId } = useParams()
-  const { perfil } = useAuth()
+  const { perfil, recargarPerfil } = useAuth()
 
   const [curso, setCurso] = useState(null)
   const [tema, setTema] = useState(null)
@@ -101,6 +101,7 @@ export default function PracticaIndividual() {
 
     if (siguienteIndice >= preguntas.length) {
       await guardarIntento(correctasActualizadas)
+      recargarPerfil()
       setTerminado(true)
       return
     }
