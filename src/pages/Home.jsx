@@ -30,12 +30,35 @@ export default function Home() {
   async function cargarDuelos() {
     const { data } = await supabase
       .from('duelos')
-      .select('id, estado, jugador_1, jugador_2, perfil_1:jugador_1(nombre), perfil_2:jugador_2(nombre), cursos(nombre)')
+      .select(
+        'id, estado, cantidad_preguntas, jugador_1, jugador_2, perfil_1:jugador_1(nombre), perfil_2:jugador_2(nombre), cursos(nombre)'
+      )
       .or(`jugador_1.eq.${perfil.id},jugador_2.eq.${perfil.id}`)
       .order('creado_en', { ascending: false })
       .limit(5)
 
-    setDuelos(data || [])
+    const lista = data || []
+    const enCurso = lista.filter((d) => d.estado !== 'finalizado')
+
+    let respondidasPorDuelo = {}
+    if (enCurso.length > 0) {
+      const { data: misRespuestas } = await supabase
+        .from('respuestas')
+        .select('duelo_id')
+        .eq('usuario_id', perfil.id)
+        .in('duelo_id', enCurso.map((d) => d.id))
+
+      for (const r of misRespuestas || []) {
+        respondidasPorDuelo[r.duelo_id] = (respondidasPorDuelo[r.duelo_id] || 0) + 1
+      }
+    }
+
+    setDuelos(
+      lista.map((d) => ({
+        ...d,
+        meToca: d.estado !== 'finalizado' && (respondidasPorDuelo[d.id] || 0) < d.cantidad_preguntas,
+      }))
+    )
   }
 
   const cursosFiltrados = cursos
@@ -59,18 +82,30 @@ export default function Home() {
                 const soyJugador1 = d.jugador_1 === perfil.id
                 const nombreRival = soyJugador1 ? d.perfil_2?.nombre : d.perfil_1?.nombre
                 const destino = d.estado === 'finalizado' ? `/duelo/${d.id}/resultado` : `/duelo/${d.id}`
+                const etiqueta = d.estado === 'finalizado' ? 'Ver resultado' : d.meToca ? 'Te toca jugar' : 'Esperando rival'
+
                 return (
                   <Link
                     key={d.id}
                     to={destino}
-                    className="bg-white border border-slate-200 rounded-xl p-3 flex items-center justify-between hover:border-indigo-300"
+                    className={`rounded-xl p-3 flex items-center justify-between border ${
+                      d.meToca
+                        ? 'bg-indigo-50 border-indigo-300'
+                        : 'bg-white border-slate-200 hover:border-indigo-300'
+                    }`}
                   >
                     <div>
-                      <span className="text-sm text-slate-700">vs {nombreRival}</span>
+                      <span className={`text-sm ${d.meToca ? 'text-indigo-900 font-medium' : 'text-slate-700'}`}>
+                        vs {nombreRival}
+                      </span>
                       <p className="text-xs text-slate-400">{d.cursos?.nombre}</p>
                     </div>
-                    <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded-md capitalize">
-                      {d.estado === 'finalizado' ? 'Ver resultado' : 'Jugar'}
+                    <span
+                      className={`text-xs px-2 py-1 rounded-md whitespace-nowrap ${
+                        d.meToca ? 'bg-indigo-600 text-white font-medium' : 'bg-indigo-50 text-indigo-600'
+                      }`}
+                    >
+                      {etiqueta}
                     </span>
                   </Link>
                 )
