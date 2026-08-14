@@ -12,6 +12,21 @@ function mezclar(arr) {
 }
 
 export async function crearDuelo({ cursoId, temaId, cantidadPreguntas, dificultad, jugador1Id, jugador2Id }) {
+  const { data: existentes } = await supabase
+    .from('duelos')
+    .select('id')
+    .eq('curso_id', cursoId)
+    .eq('tema_id', temaId)
+    .neq('estado', 'finalizado')
+    .or(
+      `and(jugador_1.eq.${jugador1Id},jugador_2.eq.${jugador2Id}),and(jugador_1.eq.${jugador2Id},jugador_2.eq.${jugador1Id})`
+    )
+    .limit(1)
+
+  if (existentes && existentes.length > 0) {
+    return { dueloId: existentes[0].id, yaExistia: true }
+  }
+
   let consultaPreguntas = supabase.from('preguntas').select('id').eq('tema_id', temaId).eq('activa', true)
   if (dificultad && dificultad !== 'todas') consultaPreguntas = consultaPreguntas.eq('dificultad', dificultad)
   const { data: preguntasTema } = await consultaPreguntas

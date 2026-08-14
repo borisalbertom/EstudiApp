@@ -34,19 +34,19 @@ export default function Home() {
         'id, estado, cantidad_preguntas, jugador_1, jugador_2, perfil_1:jugador_1(nombre), perfil_2:jugador_2(nombre), cursos(nombre)'
       )
       .or(`jugador_1.eq.${perfil.id},jugador_2.eq.${perfil.id}`)
+      .neq('estado', 'finalizado')
       .order('creado_en', { ascending: false })
       .limit(5)
 
     const lista = data || []
-    const enCurso = lista.filter((d) => d.estado !== 'finalizado')
 
     let respondidasPorDuelo = {}
-    if (enCurso.length > 0) {
+    if (lista.length > 0) {
       const { data: misRespuestas } = await supabase
         .from('respuestas')
         .select('duelo_id')
         .eq('usuario_id', perfil.id)
-        .in('duelo_id', enCurso.map((d) => d.id))
+        .in('duelo_id', lista.map((d) => d.id))
 
       for (const r of misRespuestas || []) {
         respondidasPorDuelo[r.duelo_id] = (respondidasPorDuelo[r.duelo_id] || 0) + 1
@@ -56,7 +56,7 @@ export default function Home() {
     setDuelos(
       lista.map((d) => ({
         ...d,
-        meToca: d.estado !== 'finalizado' && (respondidasPorDuelo[d.id] || 0) < d.cantidad_preguntas,
+        meToca: (respondidasPorDuelo[d.id] || 0) < d.cantidad_preguntas,
       }))
     )
   }
@@ -102,8 +102,7 @@ export default function Home() {
               {duelos.map((d) => {
                 const soyJugador1 = d.jugador_1 === perfil.id
                 const nombreRival = soyJugador1 ? d.perfil_2?.nombre : d.perfil_1?.nombre
-                const destino = d.estado === 'finalizado' ? `/duelo/${d.id}/resultado` : `/duelo/${d.id}`
-                const etiqueta = d.estado === 'finalizado' ? 'Ver resultado' : d.meToca ? 'Te toca jugar' : 'Esperando rival'
+                const etiqueta = d.meToca ? 'Te toca jugar' : 'Esperando rival'
 
                 return (
                   <div
@@ -112,7 +111,7 @@ export default function Home() {
                       d.meToca ? 'bg-indigo-50 border-indigo-300' : 'bg-white border-slate-200 hover:border-indigo-300'
                     }`}
                   >
-                    <Link to={destino} className="p-3 flex items-center justify-between">
+                    <Link to={`/duelo/${d.id}`} className="p-3 flex items-center justify-between">
                       <div>
                         <span className={`text-sm ${d.meToca ? 'text-indigo-900 font-medium' : 'text-slate-700'}`}>
                           vs {nombreRival}
@@ -127,14 +126,12 @@ export default function Home() {
                         {etiqueta}
                       </span>
                     </Link>
-                    {d.estado !== 'finalizado' && (
-                      <button
-                        onClick={() => abandonarDuelo(d.id)}
-                        className="text-xs text-slate-400 hover:text-red-500 px-3 pb-2"
-                      >
-                        Abandonar duelo
-                      </button>
-                    )}
+                    <button
+                      onClick={() => abandonarDuelo(d.id)}
+                      className="text-xs text-slate-400 hover:text-red-500 px-3 pb-2"
+                    >
+                      Abandonar duelo
+                    </button>
                   </div>
                 )
               })}
