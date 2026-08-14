@@ -59,15 +59,15 @@ export default function NavBar() {
 
   return (
     <header className="border-b border-slate-200 bg-white sticky top-0 z-10">
-      <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
-        <span className="font-semibold text-slate-800">🎯 EstudiApp</span>
-        <nav className="flex items-center gap-4 text-sm">
+      <div className="max-w-3xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between gap-2">
+        <span className="font-semibold text-slate-800 text-sm sm:text-base shrink-0">🎯 EstudiApp</span>
+        <nav className="flex items-center gap-2 sm:gap-4 text-sm overflow-x-auto">
           {todosLosLinks.map((l) => (
             <NavLink
               key={l.to}
               to={l.to}
               className={({ isActive }) =>
-                `relative ${isActive ? 'text-indigo-600 font-medium' : 'text-slate-500 hover:text-slate-800'}`
+                `relative shrink-0 ${isActive ? 'text-indigo-600 font-medium' : 'text-slate-500 hover:text-slate-800'}`
               }
             >
               {l.label}
@@ -78,9 +78,9 @@ export default function NavBar() {
               )}
             </NavLink>
           ))}
-          <span className="text-slate-300">|</span>
-          <span className="text-slate-500">{perfil?.nombre}</span>
-          <button onClick={cerrarSesion} className="text-slate-400 hover:text-slate-700 text-xs border border-slate-200 rounded-md px-2 py-1">
+          <span className="text-slate-300 hidden sm:inline">|</span>
+          <span className="text-slate-500 hidden sm:inline">{perfil?.nombre}</span>
+          <button onClick={cerrarSesion} className="shrink-0 text-slate-400 hover:text-slate-700 text-xs border border-slate-200 rounded-md px-2 py-1">
             Salir
           </button>
         </nav>
