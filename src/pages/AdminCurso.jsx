@@ -11,8 +11,11 @@ export default function AdminCurso() {
   const [curso, setCurso] = useState(null)
   const [temas, setTemas] = useState([])
   const [temaExpandido, setTemaExpandido] = useState(null)
+  const [temaEditando, setTemaEditando] = useState(null)
+  const [nombreEditado, setNombreEditado] = useState('')
   const [preguntasPorTema, setPreguntasPorTema] = useState({})
   const [cargando, setCargando] = useState(true)
+  const [errorTema, setErrorTema] = useState('')
 
   const [nombreTema, setNombreTema] = useState('')
   const [creandoTema, setCreandoTema] = useState(false)
@@ -53,6 +56,29 @@ export default function AdminCurso() {
       cargarCurso()
     }
     setCreandoTema(false)
+  }
+
+  async function guardarNombreTema(temaId) {
+    if (!nombreEditado.trim()) return
+    await supabase.from('temas').update({ nombre: nombreEditado.trim() }).eq('id', temaId)
+    setTemaEditando(null)
+    cargarCurso()
+  }
+
+  async function borrarTema(temaId) {
+    setErrorTema('')
+    const { count } = await supabase
+      .from('preguntas')
+      .select('id', { count: 'exact', head: true })
+      .eq('tema_id', temaId)
+
+    if ((count || 0) > 0) {
+      setErrorTema('Este tema tiene preguntas — desactívalas todas antes de poder borrarlo.')
+      return
+    }
+
+    await supabase.from('temas').delete().eq('id', temaId)
+    cargarCurso()
   }
 
   async function alternarTema(temaId) {
@@ -191,18 +217,56 @@ export default function AdminCurso() {
           </button>
         </form>
 
+        {errorTema && <p className="text-xs text-red-500 mb-3">{errorTema}</p>}
+
         <div className="flex flex-col gap-3">
           {temas.map((t) => (
             <div key={t.id} className="bg-white border border-slate-200 rounded-xl p-4">
-              <button
-                onClick={() => alternarTema(t.id)}
-                className="w-full flex items-center justify-between text-left"
-              >
-                <p className="font-medium text-slate-800">{t.nombre}</p>
-                <span className="text-xs text-indigo-600">
-                  {temaExpandido === t.id ? 'Ocultar preguntas' : 'Ver preguntas'}
-                </span>
-              </button>
+              <div className="flex items-center justify-between gap-2">
+                {temaEditando === t.id ? (
+                  <div className="flex-1 flex gap-2">
+                    <input
+                      type="text"
+                      value={nombreEditado}
+                      onChange={(e) => setNombreEditado(e.target.value)}
+                      className="flex-1 border border-slate-300 rounded-lg px-2 py-1 text-sm"
+                      autoFocus
+                    />
+                    <button onClick={() => guardarNombreTema(t.id)} className="text-xs text-indigo-600">Guardar</button>
+                    <button onClick={() => setTemaEditando(null)} className="text-xs text-slate-400">Cancelar</button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => alternarTema(t.id)}
+                    className="flex-1 flex items-center justify-between text-left"
+                  >
+                    <p className="font-medium text-slate-800">{t.nombre}</p>
+                    <span className="text-xs text-indigo-600">
+                      {temaExpandido === t.id ? 'Ocultar preguntas' : 'Ver preguntas'}
+                    </span>
+                  </button>
+                )}
+
+                {temaEditando !== t.id && (
+                  <div className="flex gap-2 shrink-0">
+                    <button
+                      onClick={() => {
+                        setTemaEditando(t.id)
+                        setNombreEditado(t.nombre)
+                      }}
+                      className="text-xs text-slate-400 hover:text-slate-700"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => borrarTema(t.id)}
+                      className="text-xs text-slate-400 hover:text-red-500"
+                    >
+                      Borrar
+                    </button>
+                  </div>
+                )}
+              </div>
 
               {temaExpandido === t.id && (
                 <PreguntasTema
@@ -227,6 +291,7 @@ function PreguntasTema({ temaId, preguntas, onCambio, onAlternarActiva }) {
   const [dificultad, setDificultad] = useState('facil')
   const [creando, setCreando] = useState(false)
   const [error, setError] = useState('')
+  const [editandoId, setEditandoId] = useState(null)
 
   function actualizarAlternativa(i, valor) {
     setAlternativas((prev) => prev.map((a, idx) => (idx === i ? valor : a)))
@@ -313,24 +378,131 @@ function PreguntasTema({ temaId, preguntas, onCambio, onAlternarActiva }) {
 
       <div className="flex flex-col gap-2">
         {preguntas.length === 0 && <p className="text-xs text-slate-400">Este tema no tiene preguntas todavía.</p>}
-        {preguntas.map((p) => (
-          <div key={p.id} className="border border-slate-200 rounded-lg p-3">
-            <div className="flex items-start justify-between gap-2">
-              <p className="text-sm text-slate-700">{p.enunciado}</p>
-              <button
-                onClick={() => onAlternarActiva(p)}
-                className={`text-xs shrink-0 px-2 py-1 rounded-md ${
-                  p.activa ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-400'
-                }`}
-              >
-                {p.activa ? 'Activa' : 'Inactiva'}
-              </button>
+        {preguntas.map((p) =>
+          editandoId === p.id ? (
+            <PreguntaEdicion
+              key={p.id}
+              pregunta={p}
+              onCancelar={() => setEditandoId(null)}
+              onGuardado={() => {
+                setEditandoId(null)
+                onCambio()
+              }}
+            />
+          ) : (
+            <div key={p.id} className="border border-slate-200 rounded-lg p-3">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm text-slate-700">{p.enunciado}</p>
+                <div className="flex gap-2 shrink-0">
+                  <button onClick={() => setEditandoId(p.id)} className="text-xs text-slate-400 hover:text-slate-700">
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => onAlternarActiva(p)}
+                    className={`text-xs px-2 py-1 rounded-md ${
+                      p.activa ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-400'
+                    }`}
+                  >
+                    {p.activa ? 'Activa' : 'Inactiva'}
+                  </button>
+                </div>
+              </div>
+              <p className="text-xs text-slate-400 mt-1">
+                Correcta: {p.alternativas?.[p.correcta]} · Dificultad: {p.dificultad}
+              </p>
             </div>
-            <p className="text-xs text-slate-400 mt-1">
-              Correcta: {p.alternativas?.[p.correcta]} · Dificultad: {p.dificultad}
-            </p>
-          </div>
-        ))}
+          )
+        )}
+      </div>
+    </div>
+  )
+}
+
+function PreguntaEdicion({ pregunta, onCancelar, onGuardado }) {
+  const [enunciado, setEnunciado] = useState(pregunta.enunciado)
+  const [alternativas, setAlternativas] = useState([...pregunta.alternativas])
+  const [correcta, setCorrecta] = useState(pregunta.correcta)
+  const [dificultad, setDificultad] = useState(pregunta.dificultad)
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState('')
+
+  function actualizarAlternativa(i, valor) {
+    setAlternativas((prev) => prev.map((a, idx) => (idx === i ? valor : a)))
+  }
+
+  async function guardar() {
+    if (!enunciado.trim() || alternativas.some((a) => !a.trim())) {
+      setError('Completa el enunciado y las 4 alternativas.')
+      return
+    }
+    setGuardando(true)
+    setError('')
+
+    const { error } = await supabase
+      .from('preguntas')
+      .update({
+        enunciado: enunciado.trim(),
+        alternativas: alternativas.map((a) => a.trim()),
+        correcta,
+        dificultad,
+      })
+      .eq('id', pregunta.id)
+
+    if (error) {
+      setError('No se pudo guardar.')
+      setGuardando(false)
+    } else {
+      onGuardado()
+    }
+  }
+
+  return (
+    <div className="border border-indigo-200 rounded-lg p-3 bg-indigo-50/40 flex flex-col gap-2">
+      <input
+        type="text"
+        value={enunciado}
+        onChange={(e) => setEnunciado(e.target.value)}
+        className="border border-slate-300 rounded-lg px-3 py-2 text-sm"
+      />
+      {alternativas.map((alt, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <input
+            type="radio"
+            name={`editar-correcta-${pregunta.id}`}
+            checked={correcta === i}
+            onChange={() => setCorrecta(i)}
+          />
+          <input
+            type="text"
+            value={alt}
+            onChange={(e) => actualizarAlternativa(i, e.target.value)}
+            className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm"
+          />
+        </div>
+      ))}
+      <select
+        value={dificultad}
+        onChange={(e) => setDificultad(e.target.value)}
+        className="border border-slate-300 rounded-lg px-3 py-2 text-sm"
+      >
+        <option value="facil">Fácil</option>
+        <option value="media">Media</option>
+        <option value="dificil">Difícil</option>
+      </select>
+
+      {error && <p className="text-xs text-red-500">{error}</p>}
+
+      <div className="flex gap-2">
+        <button
+          onClick={guardar}
+          disabled={guardando}
+          className="flex-1 bg-indigo-600 text-white text-sm rounded-lg py-2 disabled:opacity-50"
+        >
+          {guardando ? 'Guardando...' : 'Guardar cambios'}
+        </button>
+        <button onClick={onCancelar} className="text-sm text-slate-500 px-3">
+          Cancelar
+        </button>
       </div>
     </div>
   )
