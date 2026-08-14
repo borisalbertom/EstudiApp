@@ -17,8 +17,10 @@ export function AuthProvider({ children }) {
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
-      if (session) cargarPerfil(session.user.id)
-      else {
+      if (session) {
+        setCargando(true)
+        cargarPerfil(session.user.id)
+      } else {
         setPerfil(null)
         setCargando(false)
       }
