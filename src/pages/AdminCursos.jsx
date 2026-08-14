@@ -17,6 +17,7 @@ export default function AdminCursos() {
   const [mostrarRanking, setMostrarRanking] = useState(true)
   const [cantidadPreguntas, setCantidadPreguntas] = useState(5)
   const [porcentajeCertificacion, setPorcentajeCertificacion] = useState(70)
+  const [tiempoPorPregunta, setTiempoPorPregunta] = useState(0)
   const [creando, setCreando] = useState(false)
   const [error, setError] = useState('')
 
@@ -56,6 +57,7 @@ export default function AdminCursos() {
       mostrar_ranking: mostrarRanking,
       cantidad_preguntas: cantidadPreguntas,
       porcentaje_certificacion: porcentajeCertificacion,
+      tiempo_por_pregunta: tiempoPorPregunta,
     })
 
     if (error) setError('No se pudo crear el curso.')
@@ -68,6 +70,7 @@ export default function AdminCursos() {
       setMostrarRanking(true)
       setCantidadPreguntas(5)
       setPorcentajeCertificacion(70)
+      setTiempoPorPregunta(0)
       cargarCursos()
     }
     setCreando(false)
@@ -157,6 +160,18 @@ export default function AdminCursos() {
               max={50}
               value={cantidadPreguntas}
               onChange={(e) => setCantidadPreguntas(Number(e.target.value))}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1"
+            />
+          </label>
+
+          <label className="text-xs text-slate-500">
+            Tiempo por pregunta en segundos (0 = sin límite)
+            <input
+              type="number"
+              min={0}
+              max={600}
+              value={tiempoPorPregunta}
+              onChange={(e) => setTiempoPorPregunta(Number(e.target.value))}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1"
             />
           </label>

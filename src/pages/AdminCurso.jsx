@@ -29,7 +29,7 @@ export default function AdminCurso() {
     const [{ data: cursoData }, { data: temasData }] = await Promise.all([
       supabase
         .from('cursos')
-        .select('id, nombre, permite_duelos, permite_individual, mostrar_ranking, cantidad_preguntas, porcentaje_certificacion')
+        .select('id, nombre, permite_duelos, permite_individual, mostrar_ranking, cantidad_preguntas, porcentaje_certificacion, tiempo_por_pregunta')
         .eq('id', id)
         .single(),
       supabase.from('temas').select('id, nombre, orden').eq('curso_id', id).order('orden', { ascending: true }),
@@ -153,6 +153,18 @@ export default function AdminCurso() {
               max={50}
               value={curso?.cantidad_preguntas ?? 5}
               onChange={(e) => actualizarConfig('cantidad_preguntas', Number(e.target.value))}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1"
+            />
+          </label>
+
+          <label className="text-xs text-slate-500 mb-1">
+            Tiempo por pregunta en segundos (0 = sin límite)
+            <input
+              type="number"
+              min={0}
+              max={600}
+              value={curso?.tiempo_por_pregunta ?? 0}
+              onChange={(e) => actualizarConfig('tiempo_por_pregunta', Number(e.target.value))}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1"
             />
           </label>

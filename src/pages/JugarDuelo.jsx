@@ -19,6 +19,8 @@ export default function JugarDuelo() {
   const [enviando, setEnviando] = useState(false)
   const [inicioPregunta, setInicioPregunta] = useState(null)
   const [error, setError] = useState('')
+  const [tiempoPorPregunta, setTiempoPorPregunta] = useState(0)
+  const [tiempoRestante, setTiempoRestante] = useState(null)
 
   useEffect(() => {
     cargarDuelo()
@@ -27,6 +29,23 @@ export default function JugarDuelo() {
   useEffect(() => {
     if (mostrarResultado) navigate(`/duelo/${id}/resultado`, { replace: true })
   }, [mostrarResultado])
+
+  useEffect(() => {
+    if (!tiempoPorPregunta || seleccionada !== null || cargando || mostrarResultado) {
+      return
+    }
+    setTiempoRestante(tiempoPorPregunta)
+    const interval = setInterval(() => {
+      setTiempoRestante((prev) => (prev > 0 ? prev - 1 : 0))
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [indice, tiempoPorPregunta, cargando, mostrarResultado])
+
+  useEffect(() => {
+    if (tiempoRestante === 0 && seleccionada === null) {
+      responder(-1)
+    }
+  }, [tiempoRestante])
 
   async function cargarDuelo() {
     setCargando(true)
@@ -42,6 +61,13 @@ export default function JugarDuelo() {
       setCargando(false)
       return
     }
+
+    const { data: cursoData } = await supabase
+      .from('cursos')
+      .select('tiempo_por_pregunta')
+      .eq('id', dueloData.curso_id)
+      .single()
+    setTiempoPorPregunta(cursoData?.tiempo_por_pregunta || 0)
 
     const { data: preguntasData } = await supabase
       .from('duelo_preguntas')
@@ -168,15 +194,26 @@ export default function JugarDuelo() {
     <div className="min-h-screen bg-slate-50">
       <NavBar />
       <main className="max-w-3xl mx-auto px-4 py-6">
-        <p className="text-xs text-slate-400 mb-1">
-          Pregunta {indice + 1} de {preguntas.length}
-        </p>
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-xs text-slate-400">
+            Pregunta {indice + 1} de {preguntas.length}
+          </p>
+          {tiempoPorPregunta > 0 && seleccionada === null && (
+            <p className={`text-sm font-medium ${tiempoRestante <= 5 ? 'text-red-500' : 'text-slate-500'}`}>
+              ⏱ {tiempoRestante}s
+            </p>
+          )}
+        </div>
         <div className="w-full bg-slate-200 rounded-full h-1.5 mb-6">
           <div
             className="bg-indigo-600 h-1.5 rounded-full transition-all"
             style={{ width: `${((indice + (seleccionada !== null ? 1 : 0)) / preguntas.length) * 100}%` }}
           />
         </div>
+
+        {seleccionada === -1 && (
+          <p className="text-xs text-amber-600 mb-3">⏱ Se acabó el tiempo para esta pregunta.</p>
+        )}
 
         {error && <p className="text-xs text-red-500 mb-3">{error}</p>}
 
