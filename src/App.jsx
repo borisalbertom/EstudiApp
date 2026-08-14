@@ -12,6 +12,7 @@ import PracticaIndividual from './pages/PracticaIndividual'
 import RankingCurso from './pages/RankingCurso'
 import AdminCursos from './pages/AdminCursos'
 import AdminCurso from './pages/AdminCurso'
+import AdminOrganizaciones from './pages/AdminOrganizaciones'
 
 export default function App() {
   return (
@@ -96,6 +97,14 @@ export default function App() {
             element={
               <RutaProtegida>
                 <AdminCurso />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/admin/organizaciones"
+            element={
+              <RutaProtegida>
+                <AdminOrganizaciones />
               </RutaProtegida>
             }
           />

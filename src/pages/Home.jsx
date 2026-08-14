@@ -30,7 +30,7 @@ export default function Home() {
   async function cargarDuelos() {
     const { data } = await supabase
       .from('duelos')
-      .select('id, estado, jugador_1, jugador_2, perfil_1:jugador_1(nombre), perfil_2:jugador_2(nombre)')
+      .select('id, estado, jugador_1, jugador_2, perfil_1:jugador_1(nombre), perfil_2:jugador_2(nombre), cursos(nombre)')
       .or(`jugador_1.eq.${perfil.id},jugador_2.eq.${perfil.id}`)
       .order('creado_en', { ascending: false })
       .limit(5)
@@ -65,7 +65,10 @@ export default function Home() {
                     to={destino}
                     className="bg-white border border-slate-200 rounded-xl p-3 flex items-center justify-between hover:border-indigo-300"
                   >
-                    <span className="text-sm text-slate-700">vs {nombreRival}</span>
+                    <div>
+                      <span className="text-sm text-slate-700">vs {nombreRival}</span>
+                      <p className="text-xs text-slate-400">{d.cursos?.nombre}</p>
+                    </div>
                     <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded-md capitalize">
                       {d.estado === 'finalizado' ? 'Ver resultado' : 'Jugar'}
                     </span>
