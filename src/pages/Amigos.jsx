@@ -24,13 +24,15 @@ export default function Amigos() {
 
   async function buscar(e) {
     e.preventDefault()
-    if (!busqueda.trim()) return
-    const { data } = await supabase
-      .from('perfiles')
-      .select('id, nombre, email')
-      .ilike('email', busqueda.trim())
-      .neq('id', perfil.id)
-      .limit(5)
+    const termino = busqueda.trim()
+    if (!termino) return
+
+    const consulta = supabase.from('perfiles').select('id, nombre, email').neq('id', perfil.id).limit(5)
+
+    const { data } = termino.includes('@')
+      ? await consulta.ilike('email', termino)
+      : await consulta.ilike('nombre', `%${termino}%`)
+
     setResultados(data || [])
   }
 
@@ -60,13 +62,13 @@ export default function Amigos() {
     <div className="min-h-screen bg-slate-50">
       <NavBar />
       <main className="max-w-3xl mx-auto px-4 py-6">
-        <p className="text-sm font-medium text-slate-700 mb-2">Buscar amigos por email</p>
+        <p className="text-sm font-medium text-slate-700 mb-2">Buscar amigos por nombre o email</p>
         <form onSubmit={buscar} className="flex gap-2 mb-4">
           <input
             type="text"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="email@ejemplo.com"
+            placeholder="Nombre o email@ejemplo.com"
             className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm"
           />
           <button className="bg-indigo-600 text-white text-sm px-4 rounded-lg">Buscar</button>
