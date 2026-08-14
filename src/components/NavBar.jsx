@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { supabase } from '../lib/supabase'
 
 const links = [
   { to: '/', label: 'Inicio' },
@@ -9,9 +11,51 @@ const links = [
 
 export default function NavBar() {
   const { perfil, cerrarSesion } = useAuth()
+  const [solicitudesPendientes, setSolicitudesPendientes] = useState(0)
+  const [duelosPendientes, setDuelosPendientes] = useState(0)
+
+  useEffect(() => {
+    if (perfil) cargarNotificaciones()
+  }, [perfil?.id])
+
+  async function cargarNotificaciones() {
+    const { count } = await supabase
+      .from('amistades')
+      .select('id', { count: 'exact', head: true })
+      .eq('usuario_b', perfil.id)
+      .eq('estado', 'pendiente')
+    setSolicitudesPendientes(count || 0)
+
+    const { data: duelosEnCurso } = await supabase
+      .from('duelos')
+      .select('id, cantidad_preguntas')
+      .eq('estado', 'en_curso')
+      .or(`jugador_1.eq.${perfil.id},jugador_2.eq.${perfil.id}`)
+
+    if (!duelosEnCurso || duelosEnCurso.length === 0) {
+      setDuelosPendientes(0)
+      return
+    }
+
+    const { data: misRespuestas } = await supabase
+      .from('respuestas')
+      .select('duelo_id')
+      .eq('usuario_id', perfil.id)
+      .in('duelo_id', duelosEnCurso.map((d) => d.id))
+
+    const respondidasPorDuelo = {}
+    for (const r of misRespuestas || []) {
+      respondidasPorDuelo[r.duelo_id] = (respondidasPorDuelo[r.duelo_id] || 0) + 1
+    }
+    const pendientes = duelosEnCurso.filter((d) => (respondidasPorDuelo[d.id] || 0) < d.cantidad_preguntas)
+    setDuelosPendientes(pendientes.length)
+  }
+
   const todosLosLinks = perfil?.es_admin_plataforma
     ? [...links, { to: '/admin', label: 'Admin' }]
     : links
+
+  const notificaciones = { '/': duelosPendientes, '/amigos': solicitudesPendientes }
 
   return (
     <header className="border-b border-slate-200 bg-white sticky top-0 z-10">
@@ -23,10 +67,15 @@ export default function NavBar() {
               key={l.to}
               to={l.to}
               className={({ isActive }) =>
-                isActive ? 'text-indigo-600 font-medium' : 'text-slate-500 hover:text-slate-800'
+                `relative ${isActive ? 'text-indigo-600 font-medium' : 'text-slate-500 hover:text-slate-800'}`
               }
             >
               {l.label}
+              {notificaciones[l.to] > 0 && (
+                <span className="absolute -top-2 -right-3 bg-red-500 text-white text-[10px] leading-none rounded-full w-4 h-4 flex items-center justify-center">
+                  {notificaciones[l.to]}
+                </span>
+              )}
             </NavLink>
           ))}
           <span className="text-slate-300">|</span>
