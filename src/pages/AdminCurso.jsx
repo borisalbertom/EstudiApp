@@ -83,6 +83,12 @@ export default function AdminCurso() {
     await supabase.from('cursos').update({ [campo]: valor }).eq('id', id)
   }
 
+  async function actualizarTipo(tipo) {
+    const cambios = { permite_duelos: tipo === 'retos', permite_individual: tipo === 'certificacion' }
+    setCurso((prev) => ({ ...prev, ...cambios }))
+    await supabase.from('cursos').update(cambios).eq('id', id)
+  }
+
   if (!perfil?.es_admin_plataforma) {
     return (
       <div className="min-h-screen bg-slate-50">
@@ -125,24 +131,24 @@ export default function AdminCurso() {
             />
           </label>
 
-          <label className="flex items-center gap-1.5 text-sm text-slate-600">
-            <input
-              type="checkbox"
-              checked={curso?.permite_duelos || false}
-              onChange={(e) => actualizarConfig('permite_duelos', e.target.checked)}
-              className="accent-indigo-600"
-            />
-            Permitir duelos entre amigos
-          </label>
-          <label className="flex items-center gap-1.5 text-sm text-slate-600">
-            <input
-              type="checkbox"
-              checked={curso?.permite_individual || false}
-              onChange={(e) => actualizarConfig('permite_individual', e.target.checked)}
-              className="accent-indigo-600"
-            />
-            Permitir modo individual (evaluación / nota)
-          </label>
+          <div className="flex gap-4 text-sm text-slate-600">
+            <label className="flex items-center gap-1.5">
+              <input
+                type="radio"
+                checked={!curso?.permite_individual}
+                onChange={() => actualizarTipo('retos')}
+              />
+              Retos (duelos entre amigos)
+            </label>
+            <label className="flex items-center gap-1.5">
+              <input
+                type="radio"
+                checked={curso?.permite_individual || false}
+                onChange={() => actualizarTipo('certificacion')}
+              />
+              Certificación (evaluación individual)
+            </label>
+          </div>
           {curso?.permite_individual && (
             <label className="text-xs text-slate-500 ml-5">
               % para aprobar en el modo individual

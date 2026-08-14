@@ -13,8 +13,7 @@ export default function AdminCursos() {
   const [descripcion, setDescripcion] = useState('')
   const [visibilidad, setVisibilidad] = useState('publico')
   const [organizacionId, setOrganizacionId] = useState('')
-  const [permiteDuelos, setPermiteDuelos] = useState(true)
-  const [permiteIndividual, setPermiteIndividual] = useState(false)
+  const [tipoCurso, setTipoCurso] = useState('retos') // 'retos' | 'certificacion'
   const [mostrarRanking, setMostrarRanking] = useState(true)
   const [cantidadPreguntas, setCantidadPreguntas] = useState(5)
   const [porcentajeCertificacion, setPorcentajeCertificacion] = useState(70)
@@ -52,8 +51,8 @@ export default function AdminCursos() {
       visibilidad,
       organizacion_id: visibilidad === 'privado' ? organizacionId || null : null,
       creado_por: perfil.id,
-      permite_duelos: permiteDuelos,
-      permite_individual: permiteIndividual,
+      permite_duelos: tipoCurso === 'retos',
+      permite_individual: tipoCurso === 'certificacion',
       mostrar_ranking: mostrarRanking,
       cantidad_preguntas: cantidadPreguntas,
       porcentaje_certificacion: porcentajeCertificacion,
@@ -65,8 +64,7 @@ export default function AdminCursos() {
       setDescripcion('')
       setVisibilidad('publico')
       setOrganizacionId('')
-      setPermiteDuelos(true)
-      setPermiteIndividual(false)
+      setTipoCurso('retos')
       setMostrarRanking(true)
       setCantidadPreguntas(5)
       setPorcentajeCertificacion(70)
@@ -154,26 +152,26 @@ export default function AdminCursos() {
           </label>
 
           <div className="flex flex-col gap-2 text-sm text-slate-600">
-            <label className="flex items-center gap-1.5">
-              <input
-                type="checkbox"
-                checked={permiteDuelos}
-                onChange={(e) => setPermiteDuelos(e.target.checked)}
-                className="accent-indigo-600"
-              />
-              Permitir duelos entre amigos
-            </label>
-            <label className="flex items-center gap-1.5">
-              <input
-                type="checkbox"
-                checked={permiteIndividual}
-                onChange={(e) => setPermiteIndividual(e.target.checked)}
-                className="accent-indigo-600"
-              />
-              Permitir modo individual (evaluación / nota)
-            </label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="radio"
+                  checked={tipoCurso === 'retos'}
+                  onChange={() => setTipoCurso('retos')}
+                />
+                Retos (duelos entre amigos)
+              </label>
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="radio"
+                  checked={tipoCurso === 'certificacion'}
+                  onChange={() => setTipoCurso('certificacion')}
+                />
+                Certificación (evaluación individual)
+              </label>
+            </div>
 
-            {permiteIndividual && (
+            {tipoCurso === 'certificacion' && (
               <label className="text-xs text-slate-500 ml-5">
                 % para aprobar en el modo individual
                 <input
