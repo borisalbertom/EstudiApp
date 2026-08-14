@@ -51,9 +51,11 @@ export default function NavBar() {
     setDuelosPendientes(pendientes.length)
   }
 
+  const primerNombre = perfil?.nombre?.split(' ')[0]
+  const conNombre = links.map((l) => (l.to === '/perfil' ? { ...l, label: primerNombre || 'Perfil' } : l))
   const todosLosLinks = perfil?.es_admin_plataforma
-    ? [...links, { to: '/admin', label: 'Admin' }]
-    : links
+    ? [...conNombre, { to: '/admin', label: 'Admin' }]
+    : conNombre
 
   const notificaciones = { '/': duelosPendientes, '/amigos': solicitudesPendientes }
 
@@ -79,7 +81,6 @@ export default function NavBar() {
             </NavLink>
           ))}
           <span className="text-slate-300 hidden sm:inline">|</span>
-          <span className="text-slate-500 hidden sm:inline">{perfil?.nombre}</span>
           <button onClick={cerrarSesion} className="shrink-0 text-slate-400 hover:text-slate-700 text-xs border border-slate-200 rounded-md px-2 py-1">
             Salir
           </button>
