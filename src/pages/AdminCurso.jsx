@@ -113,30 +113,17 @@ export default function AdminCurso() {
         <div className="bg-white border border-slate-200 rounded-xl p-4 mb-6 flex flex-col gap-2">
           <p className="text-sm font-medium text-slate-700 mb-1">Configuración del curso</p>
 
-          <div className="flex gap-3 mb-2">
-            <label className="flex-1 text-xs text-slate-500">
-              Preguntas por intento
-              <input
-                type="number"
-                min={1}
-                max={50}
-                value={curso?.cantidad_preguntas ?? 5}
-                onChange={(e) => actualizarConfig('cantidad_preguntas', Number(e.target.value))}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1"
-              />
-            </label>
-            <label className="flex-1 text-xs text-slate-500">
-              % para aprobar
-              <input
-                type="number"
-                min={0}
-                max={100}
-                value={curso?.porcentaje_certificacion ?? 70}
-                onChange={(e) => actualizarConfig('porcentaje_certificacion', Number(e.target.value))}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1"
-              />
-            </label>
-          </div>
+          <label className="text-xs text-slate-500 mb-1">
+            Preguntas por intento (duelos y modo individual)
+            <input
+              type="number"
+              min={1}
+              max={50}
+              value={curso?.cantidad_preguntas ?? 5}
+              onChange={(e) => actualizarConfig('cantidad_preguntas', Number(e.target.value))}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1"
+            />
+          </label>
 
           <label className="flex items-center gap-1.5 text-sm text-slate-600">
             <input
@@ -156,6 +143,19 @@ export default function AdminCurso() {
             />
             Permitir modo individual (evaluación / nota)
           </label>
+          {curso?.permite_individual && (
+            <label className="text-xs text-slate-500 ml-5">
+              % para aprobar en el modo individual
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={curso?.porcentaje_certificacion ?? 70}
+                onChange={(e) => actualizarConfig('porcentaje_certificacion', Number(e.target.value))}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1"
+              />
+            </label>
+          )}
           <label className="flex items-center gap-1.5 text-sm text-slate-600">
             <input
               type="checkbox"
