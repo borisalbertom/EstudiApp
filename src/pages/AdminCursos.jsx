@@ -16,6 +16,8 @@ export default function AdminCursos() {
   const [permiteDuelos, setPermiteDuelos] = useState(true)
   const [permiteIndividual, setPermiteIndividual] = useState(false)
   const [mostrarRanking, setMostrarRanking] = useState(true)
+  const [cantidadPreguntas, setCantidadPreguntas] = useState(5)
+  const [porcentajeCertificacion, setPorcentajeCertificacion] = useState(70)
   const [creando, setCreando] = useState(false)
   const [error, setError] = useState('')
 
@@ -53,6 +55,8 @@ export default function AdminCursos() {
       permite_duelos: permiteDuelos,
       permite_individual: permiteIndividual,
       mostrar_ranking: mostrarRanking,
+      cantidad_preguntas: cantidadPreguntas,
+      porcentaje_certificacion: porcentajeCertificacion,
     })
 
     if (error) setError('No se pudo crear el curso.')
@@ -64,6 +68,8 @@ export default function AdminCursos() {
       setPermiteDuelos(true)
       setPermiteIndividual(false)
       setMostrarRanking(true)
+      setCantidadPreguntas(5)
+      setPorcentajeCertificacion(70)
       cargarCursos()
     }
     setCreando(false)
@@ -134,6 +140,31 @@ export default function AdminCursos() {
               ))}
             </select>
           )}
+
+          <div className="flex gap-3 border-t border-slate-100 pt-3">
+            <label className="flex-1 text-xs text-slate-500">
+              Preguntas por intento
+              <input
+                type="number"
+                min={1}
+                max={50}
+                value={cantidadPreguntas}
+                onChange={(e) => setCantidadPreguntas(Number(e.target.value))}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1"
+              />
+            </label>
+            <label className="flex-1 text-xs text-slate-500">
+              % para aprobar
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={porcentajeCertificacion}
+                onChange={(e) => setPorcentajeCertificacion(Number(e.target.value))}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1"
+              />
+            </label>
+          </div>
 
           <div className="flex flex-col gap-2 text-sm text-slate-600 border-t border-slate-100 pt-3">
             <label className="flex items-center gap-1.5">

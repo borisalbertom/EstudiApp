@@ -4,7 +4,6 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import NavBar from '../components/NavBar'
 
-const CANTIDAD_PREGUNTAS = 5
 const DIAS_SIN_REPETIR = 14
 
 export default function PracticaIndividual() {
@@ -40,7 +39,7 @@ export default function PracticaIndividual() {
     setError('')
 
     const [{ data: cursoData }, { data: temaData }] = await Promise.all([
-      supabase.from('cursos').select('id, nombre, porcentaje_certificacion').eq('id', cursoId).single(),
+      supabase.from('cursos').select('id, nombre, porcentaje_certificacion, cantidad_preguntas').eq('id', cursoId).single(),
       supabase.from('temas').select('id, nombre').eq('id', temaId).single(),
     ])
     setCurso(cursoData)
@@ -69,11 +68,12 @@ export default function PracticaIndividual() {
       .eq('respondido_bien', true)
       .gte('respondido_en', desde.toISOString())
 
+    const cantidadPreguntas = cursoData?.cantidad_preguntas || 5
     const idsRecientes = new Set((historial || []).map((h) => h.pregunta_id))
     let pool = idsDisponibles.filter((p) => !idsRecientes.has(p.id))
-    if (pool.length < CANTIDAD_PREGUNTAS) pool = idsDisponibles
+    if (pool.length < cantidadPreguntas) pool = idsDisponibles
 
-    const elegidas = mezclar(pool).slice(0, Math.min(CANTIDAD_PREGUNTAS, pool.length))
+    const elegidas = mezclar(pool).slice(0, Math.min(cantidadPreguntas, pool.length))
     setPreguntas(elegidas)
     setCargando(false)
   }

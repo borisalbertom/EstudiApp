@@ -4,7 +4,6 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import NavBar from '../components/NavBar'
 
-const CANTIDAD_PREGUNTAS = 5
 const DIAS_SIN_REPETIR = 14
 
 export default function CursoDetalle() {
@@ -30,7 +29,7 @@ export default function CursoDetalle() {
     const [{ data: cursoData }, { data: temasData }] = await Promise.all([
       supabase
         .from('cursos')
-        .select('id, nombre, descripcion, permite_duelos, permite_individual, mostrar_ranking')
+        .select('id, nombre, descripcion, permite_duelos, permite_individual, mostrar_ranking, cantidad_preguntas')
         .eq('id', id)
         .single(),
       supabase.from('temas').select('id, nombre, orden').eq('curso_id', id).order('orden', { ascending: true }),
@@ -79,11 +78,12 @@ export default function CursoDetalle() {
         .eq('respondido_bien', true)
         .gte('respondido_en', desde.toISOString())
 
+      const cantidadPreguntas = curso.cantidad_preguntas || 5
       const idsRecientes = new Set((historial || []).map((h) => h.pregunta_id))
       let pool = idsDisponibles.filter((pid) => !idsRecientes.has(pid))
-      if (pool.length < CANTIDAD_PREGUNTAS) pool = idsDisponibles
+      if (pool.length < cantidadPreguntas) pool = idsDisponibles
 
-      const elegidas = mezclar(pool).slice(0, Math.min(CANTIDAD_PREGUNTAS, pool.length))
+      const elegidas = mezclar(pool).slice(0, Math.min(cantidadPreguntas, pool.length))
 
       const { data: duelo, error: errorDuelo } = await supabase
         .from('duelos')
