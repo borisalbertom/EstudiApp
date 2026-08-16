@@ -22,6 +22,8 @@ export default function CursoDetalle() {
   const [solicitudPlazo, setSolicitudPlazo] = useState(null)
   const [enviandoSolicitud, setEnviandoSolicitud] = useState(false)
   const [materialesPorTema, setMaterialesPorTema] = useState({})
+  const [pestana, setPestana] = useState('curso') // 'curso' | 'contenido'
+  const [contenidoSeleccionado, setContenidoSeleccionado] = useState(null)
 
   function dificultadDe(temaId) {
     return dificultadPorTema[temaId] || 'todas'
@@ -179,10 +181,31 @@ export default function CursoDetalle() {
           </div>
         )}
 
+        <nav className="flex items-center gap-4 border-b border-slate-200 mt-4 mb-4 text-sm">
+          {[
+            { id: 'curso', label: 'Curso' },
+            { id: 'contenido', label: 'Contenido del curso' },
+          ].map((s) => (
+            <button
+              key={s.id}
+              onClick={() => setPestana(s.id)}
+              className={`pb-2 border-b-2 -mb-px ${
+                pestana === s.id
+                  ? 'border-indigo-600 text-indigo-600 font-medium'
+                  : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </nav>
+
+        {pestana === 'curso' && (
+        <>
         {!vencido && curso.permite_individual && temas.length > 1 && (
           <Link
             to={`/curso/${id}/examen`}
-            className="mt-4 flex items-center justify-between bg-indigo-600 text-white rounded-xl px-4 py-3 hover:bg-indigo-700"
+            className="flex items-center justify-between bg-indigo-600 text-white rounded-xl px-4 py-3 hover:bg-indigo-700"
           >
             <span className="text-sm font-medium">📝 Simular examen completo</span>
             <span className="text-xs">Todo el contenido →</span>
@@ -242,16 +265,41 @@ export default function CursoDetalle() {
 
         {error && <p className="text-xs text-red-500 mt-4">{error}</p>}
 
-        <p className="text-sm font-medium text-slate-700 mt-6 mb-2">Contenido del curso</p>
+        {!curso.permite_individual && !curso.duelo_todo_curso && (
+          <p className="text-sm text-slate-400">
+            Ve a la pestaña "Contenido del curso" para practicar o retar a un amigo por tema.
+          </p>
+        )}
+        </>
+        )}
 
+        {pestana === 'contenido' && (
+        <>
         {temas.length === 0 && (
           <div className="bg-white border border-slate-200 rounded-xl p-4 text-sm text-slate-500">
             Este curso todavía no tiene contenido cargado.
           </div>
         )}
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 mb-3">
           {temas.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setContenidoSeleccionado(contenidoSeleccionado === t.id ? null : t.id)}
+              className={`text-left rounded-xl border p-4 ${
+                contenidoSeleccionado === t.id
+                  ? 'bg-indigo-50 border-indigo-300'
+                  : 'bg-white border-slate-200 hover:border-indigo-300'
+              }`}
+            >
+              <span className="font-medium text-slate-800">{t.nombre}</span>
+            </button>
+          ))}
+        </div>
+
+        {temas
+          .filter((t) => t.id === contenidoSeleccionado)
+          .map((t) => (
             <div key={t.id} className="bg-white border border-slate-200 rounded-xl p-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <p className="font-medium text-slate-800">{t.nombre}</p>
@@ -328,7 +376,8 @@ export default function CursoDetalle() {
               )}
             </div>
           ))}
-        </div>
+        </>
+        )}
       </main>
     </div>
   )
