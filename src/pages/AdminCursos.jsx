@@ -21,6 +21,7 @@ export default function AdminCursos() {
   const [tiempoPorPregunta, setTiempoPorPregunta] = useState(0)
   const [creando, setCreando] = useState(false)
   const [error, setError] = useState('')
+  const [mostrarFormulario, setMostrarFormulario] = useState(false)
 
   useEffect(() => {
     cargarCursos()
@@ -74,6 +75,7 @@ export default function AdminCursos() {
       setCantidadPreguntas(5)
       setPorcentajeCertificacion(70)
       setTiempoPorPregunta(0)
+      setMostrarFormulario(false)
       cargarCursos()
     }
     setCreando(false)
@@ -106,6 +108,14 @@ export default function AdminCursos() {
           </div>
         </div>
 
+        <button
+          onClick={() => setMostrarFormulario((prev) => !prev)}
+          className="w-full bg-white border border-dashed border-indigo-300 text-indigo-600 rounded-xl p-3 mb-6 text-sm font-medium hover:bg-indigo-50"
+        >
+          {mostrarFormulario ? '✕ Cancelar' : '+ Crear curso'}
+        </button>
+
+        {mostrarFormulario && (
         <form onSubmit={crearCurso} className="bg-white border border-slate-200 rounded-xl p-4 mb-6 flex flex-col gap-3">
           <p className="text-sm font-medium text-slate-700">Nuevo curso</p>
           <input
@@ -246,6 +256,7 @@ export default function AdminCursos() {
             {creando ? 'Creando...' : 'Crear curso'}
           </button>
         </form>
+        )}
 
         <p className="text-sm font-medium text-slate-700 mb-2">Cursos existentes</p>
 
