@@ -34,7 +34,7 @@ export default function AdminCursos() {
   async function cargarCursos() {
     let consulta = supabase
       .from('cursos')
-      .select('id, nombre, visibilidad, organizacion_id, fecha_fin, organizaciones(nombre_empresa)')
+      .select('id, nombre, visibilidad, organizacion_id, fecha_fin, permite_individual, organizaciones(nombre_empresa)')
       .order('creado_en', { ascending: false })
     if (!esSuperAdmin) consulta = consulta.in('organizacion_id', orgsAdmin)
     const { data } = await consulta
@@ -294,6 +294,8 @@ export default function AdminCursos() {
                   <p className="font-medium text-slate-800">{c.nombre}</p>
                   <p className="text-xs text-slate-500">
                     {c.visibilidad === 'publico' ? 'Público' : `Privado · ${c.organizaciones?.nombre_empresa || 'Empresa'}`}
+                    {' · '}
+                    {c.permite_individual ? '📝 Certificación' : '🎯 Retos'}
                     {c.fecha_fin && ` · ${vencido ? 'Vencido' : 'Vence'} ${c.fecha_fin}`}
                   </p>
                 </div>
