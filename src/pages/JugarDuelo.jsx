@@ -13,6 +13,7 @@ export default function JugarDuelo() {
   const [preguntas, setPreguntas] = useState([])
   const [yaRespondidas, setYaRespondidas] = useState(new Set())
   const [indice, setIndice] = useState(0)
+  const [correctas, setCorrectas] = useState(0)
   const [seleccionada, setSeleccionada] = useState(null)
   const [mostrarResultado, setMostrarResultado] = useState(false)
   const [cargando, setCargando] = useState(true)
@@ -77,7 +78,7 @@ export default function JugarDuelo() {
 
     const { data: misRespuestas } = await supabase
       .from('respuestas')
-      .select('pregunta_id')
+      .select('pregunta_id, es_correcta')
       .eq('duelo_id', id)
       .eq('usuario_id', perfil.id)
 
@@ -87,6 +88,7 @@ export default function JugarDuelo() {
     setDuelo(dueloData)
     setPreguntas(lista)
     setYaRespondidas(respondidas)
+    setCorrectas((misRespuestas || []).filter((r) => r.es_correcta).length)
 
     const primeraSinResponder = lista.findIndex((p) => !respondidas.has(p.id))
     if (primeraSinResponder === -1) {
@@ -107,6 +109,8 @@ export default function JugarDuelo() {
     const pregunta = preguntas[indice]
     const esCorrecta = alternativaIndex === pregunta.correcta
     const tiempoMs = inicioPregunta ? Date.now() - inicioPregunta : null
+
+    if (esCorrecta) setCorrectas((prev) => prev + 1)
 
     const { error: errorRespuesta } = await supabase.from('respuestas').insert({
       duelo_id: id,
@@ -198,11 +202,14 @@ export default function JugarDuelo() {
           <p className="text-xs text-slate-400">
             Pregunta {indice + 1} de {preguntas.length}
           </p>
-          {tiempoPorPregunta > 0 && seleccionada === null && (
-            <p className={`text-sm font-medium ${tiempoRestante <= 5 ? 'text-red-500' : 'text-slate-500'}`}>
-              ⏱ {tiempoRestante}s
-            </p>
-          )}
+          <div className="flex items-center gap-3">
+            <p className="text-sm font-medium text-indigo-600">🎯 {correctas}/{preguntas.length} aciertos</p>
+            {tiempoPorPregunta > 0 && seleccionada === null && (
+              <p className={`text-sm font-medium ${tiempoRestante <= 5 ? 'text-red-500' : 'text-slate-500'}`}>
+                ⏱ {tiempoRestante}s
+              </p>
+            )}
+          </div>
         </div>
         <div className="w-full bg-slate-200 rounded-full h-1.5 mb-6">
           <div
