@@ -232,6 +232,11 @@ export default function AdminCurso() {
               onChange={(e) => actualizarConfig('tiempo_por_pregunta', Number(e.target.value))}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1"
             />
+            <span className="block text-slate-400 mt-0.5 font-normal">
+              Valor por defecto. Se usa siempre en "Simular examen" y en retos de todo el curso;
+              en práctica y retos de un tema específico, cada tema puede tener su propio valor
+              (ver abajo) y este queda como respaldo si ese tema no define uno.
+            </span>
           </label>
 
           <label className="text-xs text-slate-500 mb-1">
@@ -407,21 +412,27 @@ export default function AdminCurso() {
               </div>
 
               {temaEditando !== t.id && (
-                <label className="flex items-center gap-1.5 text-xs text-slate-400 mt-2">
-                  Tiempo por pregunta (s)
-                  <input
-                    type="number"
-                    min={0}
-                    max={600}
-                    placeholder={`curso: ${curso?.tiempo_por_pregunta ?? 0}`}
-                    value={t.tiempo_por_pregunta ?? ''}
-                    onChange={(e) =>
-                      actualizarTiempoTema(t.id, e.target.value === '' ? null : Number(e.target.value))
-                    }
-                    className="w-24 border border-slate-200 rounded-md px-2 py-0.5 text-slate-600"
-                  />
-                  <span className="text-slate-300">vacío = usa el del curso</span>
-                </label>
+                <div className="mt-2">
+                  <label className="flex items-center gap-1.5 text-xs text-slate-400">
+                    Tiempo solo para este tema (s)
+                    <input
+                      type="number"
+                      min={0}
+                      max={600}
+                      placeholder={`usa el del curso: ${curso?.tiempo_por_pregunta ?? 0}`}
+                      value={t.tiempo_por_pregunta ?? ''}
+                      onChange={(e) =>
+                        actualizarTiempoTema(t.id, e.target.value === '' ? null : Number(e.target.value))
+                      }
+                      className="w-40 border border-slate-200 rounded-md px-2 py-0.5 text-slate-600"
+                    />
+                  </label>
+                  <p className="text-slate-300 text-xs mt-0.5">
+                    Vacío = usa el valor del curso ({curso?.tiempo_por_pregunta ?? 0}s). Solo aplica al
+                    practicar o retar en este tema específico — no cambia el valor de arriba, ni afecta
+                    "Simular examen" o los retos de todo el curso.
+                  </p>
+                </div>
               )}
 
               {temaExpandido === t.id && (
