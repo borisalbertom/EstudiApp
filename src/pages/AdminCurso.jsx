@@ -20,9 +20,11 @@ export default function AdminCurso() {
 
   const [nombreTema, setNombreTema] = useState('')
   const [creandoTema, setCreandoTema] = useState(false)
+  const [solicitudesPlazo, setSolicitudesPlazo] = useState([])
 
   useEffect(() => {
     cargarCurso()
+    cargarSolicitudesPlazo()
   }, [id])
 
   async function cargarCurso() {
@@ -38,6 +40,24 @@ export default function AdminCurso() {
     setCurso(cursoData)
     setTemas(temasData || [])
     setCargando(false)
+  }
+
+  async function cargarSolicitudesPlazo() {
+    const { data } = await supabase
+      .from('solicitudes_plazo')
+      .select('id, mensaje, creado_en, perfiles!solicitudes_plazo_usuario_id_fkey(nombre, email)')
+      .eq('curso_id', id)
+      .eq('estado', 'pendiente')
+      .order('creado_en', { ascending: true })
+    setSolicitudesPlazo(data || [])
+  }
+
+  async function resolverSolicitud(solicitudId) {
+    await supabase
+      .from('solicitudes_plazo')
+      .update({ estado: 'resuelta', resuelto_en: new Date().toISOString(), resuelto_por: perfil.id })
+      .eq('id', solicitudId)
+    cargarSolicitudesPlazo()
   }
 
   async function crearTema(e) {
@@ -244,6 +264,33 @@ export default function AdminCurso() {
             Mostrar ranking
           </label>
         </div>
+
+        {solicitudesPlazo.length > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+            <p className="text-sm font-medium text-amber-800 mb-2">
+              ⏳ Solicitudes de más plazo ({solicitudesPlazo.length})
+            </p>
+            <div className="flex flex-col gap-2">
+              {solicitudesPlazo.map((s) => (
+                <div key={s.id} className="flex items-center justify-between bg-white rounded-lg px-3 py-2">
+                  <div>
+                    <p className="text-sm text-slate-700">{s.perfiles?.nombre}</p>
+                    <p className="text-xs text-slate-400">{s.perfiles?.email}</p>
+                  </div>
+                  <button
+                    onClick={() => resolverSolicitud(s.id)}
+                    className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-md shrink-0"
+                  >
+                    Marcar como resuelta
+                  </button>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-amber-700 mt-2">
+              Cambia la fecha límite arriba para reactivar el curso antes de marcar como resuelta.
+            </p>
+          </div>
+        )}
 
         <form onSubmit={crearTema} className="bg-white border border-slate-200 rounded-xl p-4 mb-6 flex gap-2">
           <input

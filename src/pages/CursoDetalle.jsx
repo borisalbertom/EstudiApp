@@ -19,6 +19,8 @@ export default function CursoDetalle() {
   const [error, setError] = useState('')
   const [dificultadPorTema, setDificultadPorTema] = useState({})
   const [dificultadCurso, setDificultadCurso] = useState('todas')
+  const [solicitudPlazo, setSolicitudPlazo] = useState(null)
+  const [enviandoSolicitud, setEnviandoSolicitud] = useState(false)
 
   function dificultadDe(temaId) {
     return dificultadPorTema[temaId] || 'todas'
@@ -42,6 +44,30 @@ export default function CursoDetalle() {
     setCurso(cursoData)
     setTemas(temasData || [])
     setCargando(false)
+
+    const hoy = new Date().toISOString().slice(0, 10)
+    if (cursoData?.fecha_fin && cursoData.fecha_fin < hoy && cursoData.permite_individual) {
+      const { data: solicitudData } = await supabase
+        .from('solicitudes_plazo')
+        .select('id, estado')
+        .eq('curso_id', id)
+        .eq('usuario_id', perfil.id)
+        .eq('estado', 'pendiente')
+        .maybeSingle()
+      setSolicitudPlazo(solicitudData)
+    }
+  }
+
+  async function solicitarPlazo() {
+    setEnviandoSolicitud(true)
+    const { data, error: errorSolicitud } = await supabase
+      .from('solicitudes_plazo')
+      .insert({ curso_id: id, usuario_id: perfil.id })
+      .select('id, estado')
+      .single()
+
+    if (!errorSolicitud) setSolicitudPlazo(data)
+    setEnviandoSolicitud(false)
   }
 
   async function cargarAmigos() {
@@ -118,7 +144,22 @@ export default function CursoDetalle() {
 
         {vencido && (
           <div className="mt-4 bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">
-            ⏳ Este curso ya no está disponible — venció el {curso.fecha_fin}.
+            <p>⏳ Este curso ya no está disponible — venció el {curso.fecha_fin}.</p>
+            {curso.permite_individual && (
+              solicitudPlazo ? (
+                <p className="text-xs text-red-500 mt-2">
+                  Ya enviaste una solicitud de más plazo — el administrador la está revisando.
+                </p>
+              ) : (
+                <button
+                  onClick={solicitarPlazo}
+                  disabled={enviandoSolicitud}
+                  className="mt-2 text-xs bg-red-600 text-white px-3 py-1.5 rounded-md disabled:opacity-50"
+                >
+                  {enviandoSolicitud ? 'Enviando...' : 'Solicitar más plazo'}
+                </button>
+              )
+            )}
           </div>
         )}
 

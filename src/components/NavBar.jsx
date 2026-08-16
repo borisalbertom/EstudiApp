@@ -12,6 +12,7 @@ export default function NavBar() {
   const { perfil, orgsAdmin, cerrarSesion } = useAuth()
   const [solicitudesPendientes, setSolicitudesPendientes] = useState(0)
   const [duelosPendientes, setDuelosPendientes] = useState(0)
+  const [solicitudesPlazoPendientes, setSolicitudesPlazoPendientes] = useState(0)
 
   useEffect(() => {
     if (perfil) cargarNotificaciones()
@@ -48,13 +49,21 @@ export default function NavBar() {
     }
     const pendientes = duelosEnCurso.filter((d) => (respondidasPorDuelo[d.id] || 0) < d.cantidad_preguntas)
     setDuelosPendientes(pendientes.length)
+
+    if (perfil.es_admin_plataforma || orgsAdmin?.length > 0) {
+      const { count: plazoCount } = await supabase
+        .from('solicitudes_plazo')
+        .select('id', { count: 'exact', head: true })
+        .eq('estado', 'pendiente')
+      setSolicitudesPlazoPendientes(plazoCount || 0)
+    }
   }
 
   const todosLosLinks = perfil?.es_admin_plataforma || orgsAdmin?.length > 0
     ? [...links, { to: '/admin', label: 'Administrar', labelCorto: 'Admin' }]
     : links
 
-  const notificaciones = { '/': duelosPendientes, '/amigos': solicitudesPendientes }
+  const notificaciones = { '/': duelosPendientes, '/amigos': solicitudesPendientes, '/admin': solicitudesPlazoPendientes }
 
   return (
     <header className="border-b border-slate-200 bg-white sticky top-0 z-10">
