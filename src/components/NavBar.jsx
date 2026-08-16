@@ -51,7 +51,7 @@ export default function NavBar() {
   }
 
   const todosLosLinks = perfil?.es_admin_plataforma
-    ? [...links, { to: '/admin', label: 'Admin' }]
+    ? [...links, { to: '/admin', label: 'Administrar cursos', labelCorto: 'Admin' }]
     : links
 
   const notificaciones = { '/': duelosPendientes, '/amigos': solicitudesPendientes }
@@ -69,7 +69,14 @@ export default function NavBar() {
                 `relative shrink-0 ${isActive ? 'text-indigo-600 font-medium' : 'text-slate-500 hover:text-slate-800'}`
               }
             >
-              {l.label}
+              {l.labelCorto ? (
+                <>
+                  <span className="sm:hidden">{l.labelCorto}</span>
+                  <span className="hidden sm:inline">{l.label}</span>
+                </>
+              ) : (
+                l.label
+              )}
               {notificaciones[l.to] > 0 && (
                 <span className="absolute -top-2 -right-3 bg-red-500 text-white text-[10px] leading-none rounded-full w-4 h-4 flex items-center justify-center">
                   {notificaciones[l.to]}
