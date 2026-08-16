@@ -207,11 +207,14 @@ export default function ExamenCurso() {
           <p className="text-xs text-slate-400">
             Examen · {curso?.nombre} · Pregunta {indice + 1} de {preguntas.length}
           </p>
-          {curso?.tiempo_por_pregunta > 0 && seleccionada === null && (
-            <p className={`text-sm font-medium ${tiempoRestante <= 5 ? 'text-red-500' : 'text-slate-500'}`}>
-              ⏱ {tiempoRestante}s
-            </p>
-          )}
+          <div className="flex items-center gap-3">
+            <p className="text-sm font-medium text-indigo-600">🎯 {correctas}/{preguntas.length} aciertos</p>
+            {curso?.tiempo_por_pregunta > 0 && seleccionada === null && (
+              <p className={`text-sm font-medium ${tiempoRestante <= 5 ? 'text-red-500' : 'text-slate-500'}`}>
+                ⏱ {tiempoRestante}s
+              </p>
+            )}
+          </div>
         </div>
         <div className="w-full bg-slate-200 rounded-full h-1.5 mb-6">
           <div
