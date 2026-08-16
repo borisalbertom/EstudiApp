@@ -15,6 +15,8 @@ export default function AdminCurso() {
   const [temaEditando, setTemaEditando] = useState(null)
   const [nombreEditado, setNombreEditado] = useState('')
   const [preguntasPorTema, setPreguntasPorTema] = useState({})
+  const [materialesPorTema, setMaterialesPorTema] = useState({})
+  const [subiendoMaterial, setSubiendoMaterial] = useState(false)
   const [cargando, setCargando] = useState(true)
   const [errorTema, setErrorTema] = useState('')
 
@@ -114,6 +116,7 @@ export default function AdminCurso() {
     }
     setTemaExpandido(temaId)
     if (!preguntasPorTema[temaId]) await cargarPreguntas(temaId)
+    if (!materialesPorTema[temaId]) await cargarMateriales(temaId)
   }
 
   async function cargarPreguntas(temaId) {
@@ -123,6 +126,40 @@ export default function AdminCurso() {
       .eq('tema_id', temaId)
       .order('creado_en', { ascending: false })
     setPreguntasPorTema((prev) => ({ ...prev, [temaId]: data || [] }))
+  }
+
+  async function cargarMateriales(temaId) {
+    const { data } = await supabase
+      .from('materiales_tema')
+      .select('id, nombre_archivo, url, creado_en')
+      .eq('tema_id', temaId)
+      .order('creado_en', { ascending: false })
+    setMaterialesPorTema((prev) => ({ ...prev, [temaId]: data || [] }))
+  }
+
+  async function subirMaterial(temaId, file) {
+    if (!file) return
+    setSubiendoMaterial(true)
+
+    const rutaArchivo = `${temaId}/${Date.now()}-${file.name}`
+    const { error: errorSubida } = await supabase.storage.from('materiales').upload(rutaArchivo, file)
+
+    if (!errorSubida) {
+      const { data } = supabase.storage.from('materiales').getPublicUrl(rutaArchivo)
+      await supabase.from('materiales_tema').insert({
+        tema_id: temaId,
+        nombre_archivo: file.name,
+        url: data.publicUrl,
+        subido_por: perfil.id,
+      })
+      cargarMateriales(temaId)
+    }
+    setSubiendoMaterial(false)
+  }
+
+  async function borrarMaterial(materialId, temaId) {
+    await supabase.from('materiales_tema').delete().eq('id', materialId)
+    cargarMateriales(temaId)
   }
 
   async function alternarActiva(pregunta, temaId) {
@@ -343,7 +380,7 @@ export default function AdminCurso() {
                   >
                     <p className="font-medium text-slate-800">{t.nombre}</p>
                     <span className="text-xs text-indigo-600">
-                      {temaExpandido === t.id ? 'Ocultar preguntas' : 'Ver preguntas'}
+                      {temaExpandido === t.id ? 'Ocultar contenido' : 'Ver contenido'}
                     </span>
                   </button>
                 )}
@@ -385,6 +422,44 @@ export default function AdminCurso() {
                   />
                   <span className="text-slate-300">vacío = usa el del curso</span>
                 </label>
+              )}
+
+              {temaExpandido === t.id && (
+                <div className="mt-4 border-t border-slate-100 pt-4">
+                  <p className="text-sm font-medium text-slate-700 mb-2">📄 Material de estudio</p>
+                  <div className="flex flex-col gap-2 mb-3">
+                    {(materialesPorTema[t.id] || []).length === 0 && (
+                      <p className="text-xs text-slate-400">Todavía no hay material subido.</p>
+                    )}
+                    {(materialesPorTema[t.id] || []).map((m) => (
+                      <div key={m.id} className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2">
+                        <a
+                          href={m.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-sm text-indigo-600 hover:underline truncate"
+                        >
+                          {m.nombre_archivo}
+                        </a>
+                        <button
+                          onClick={() => borrarMaterial(m.id, t.id)}
+                          className="text-xs text-slate-400 hover:text-red-500 shrink-0 ml-2"
+                        >
+                          Borrar
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <label className="text-xs bg-slate-100 text-slate-600 px-3 py-1.5 rounded-md cursor-pointer inline-block">
+                    {subiendoMaterial ? 'Subiendo...' : '+ Subir archivo'}
+                    <input
+                      type="file"
+                      className="hidden"
+                      disabled={subiendoMaterial}
+                      onChange={(e) => subirMaterial(t.id, e.target.files?.[0])}
+                    />
+                  </label>
+                </div>
               )}
 
               {temaExpandido === t.id && (

@@ -21,6 +21,7 @@ export default function CursoDetalle() {
   const [dificultadCurso, setDificultadCurso] = useState('todas')
   const [solicitudPlazo, setSolicitudPlazo] = useState(null)
   const [enviandoSolicitud, setEnviandoSolicitud] = useState(false)
+  const [materialesPorTema, setMaterialesPorTema] = useState({})
 
   function dificultadDe(temaId) {
     return dificultadPorTema[temaId] || 'todas'
@@ -44,6 +45,21 @@ export default function CursoDetalle() {
     setCurso(cursoData)
     setTemas(temasData || [])
     setCargando(false)
+
+    const temaIds = (temasData || []).map((t) => t.id)
+    if (temaIds.length > 0) {
+      const { data: materialesData } = await supabase
+        .from('materiales_tema')
+        .select('id, tema_id, nombre_archivo, url')
+        .in('tema_id', temaIds)
+
+      const agrupados = {}
+      for (const m of materialesData || []) {
+        if (!agrupados[m.tema_id]) agrupados[m.tema_id] = []
+        agrupados[m.tema_id].push(m)
+      }
+      setMaterialesPorTema(agrupados)
+    }
 
     const hoy = new Date().toISOString().slice(0, 10)
     if (cursoData?.fecha_fin && cursoData.fecha_fin < hoy && cursoData.permite_individual) {
@@ -268,6 +284,23 @@ export default function CursoDetalle() {
                   )}
                 </div>
               </div>
+
+              {materialesPorTema[t.id]?.length > 0 && (
+                <div className="mt-3 border-t border-slate-100 pt-3 flex flex-col gap-1">
+                  <p className="text-xs font-medium text-slate-500">📄 Material de estudio</p>
+                  {materialesPorTema[t.id].map((m) => (
+                    <a
+                      key={m.id}
+                      href={m.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-indigo-600 hover:underline"
+                    >
+                      {m.nombre_archivo}
+                    </a>
+                  ))}
+                </div>
+              )}
 
               {temaRetando === t.id && curso.permite_duelos && !curso.duelo_todo_curso && (
                 <div className="mt-3 border-t border-slate-100 pt-3">
