@@ -51,7 +51,7 @@ export default function NavBar() {
   }
 
   const todosLosLinks = perfil?.es_admin_plataforma || orgsAdmin?.length > 0
-    ? [...links, { to: '/admin', label: 'Administrar cursos', labelCorto: 'Admin' }]
+    ? [...links, { to: '/admin', label: 'Administrar', labelCorto: 'Admin' }]
     : links
 
   const notificaciones = { '/': duelosPendientes, '/amigos': solicitudesPendientes }
