@@ -21,7 +21,7 @@ export default function Home() {
     const hoy = new Date().toISOString().slice(0, 10)
     const { data, error } = await supabase
       .from('cursos')
-      .select('id, nombre, descripcion, visibilidad, organizaciones(nombre_empresa)')
+      .select('id, nombre, descripcion, visibilidad, permite_duelos, permite_individual, organizaciones(nombre_empresa)')
       .or(`fecha_fin.is.null,fecha_fin.gte.${hoy}`)
       .order('creado_en', { ascending: false })
 
@@ -187,6 +187,8 @@ export default function Home() {
                 <p className="font-medium text-slate-800">{c.nombre}</p>
                 <p className="text-xs text-slate-500">
                   {c.visibilidad === 'publico' ? 'Público' : `Privado · ${c.organizaciones?.nombre_empresa || 'Empresa'}`}
+                  {' · '}
+                  {c.permite_individual ? '📝 Certificación' : '🎯 Retos'}
                 </p>
               </div>
               <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded-md">Ver</span>

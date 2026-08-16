@@ -277,12 +277,20 @@ export default function AdminCurso() {
                     <p className="text-sm text-slate-700">{s.perfiles?.nombre}</p>
                     <p className="text-xs text-slate-400">{s.perfiles?.email}</p>
                   </div>
-                  <button
-                    onClick={() => resolverSolicitud(s.id)}
-                    className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-md shrink-0"
-                  >
-                    Marcar como resuelta
-                  </button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Link
+                      to={`/curso/${id}`}
+                      className="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded-md"
+                    >
+                      Ir a curso
+                    </Link>
+                    <button
+                      onClick={() => resolverSolicitud(s.id)}
+                      className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-md"
+                    >
+                      Marcar como resuelta
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
