@@ -23,6 +23,7 @@ export default function AdminCurso() {
   const [nombreTema, setNombreTema] = useState('')
   const [creandoTema, setCreandoTema] = useState(false)
   const [solicitudesPlazo, setSolicitudesPlazo] = useState([])
+  const [seccion, setSeccion] = useState('configuracion') // 'configuracion' | 'temas'
 
   useEffect(() => {
     cargarCurso()
@@ -223,6 +224,61 @@ export default function AdminCurso() {
         <Link to="/admin" className="text-xs text-slate-400 hover:text-indigo-600">← Volver a cursos</Link>
         <h1 className="text-xl font-semibold text-slate-800 mt-2 mb-4">{curso?.nombre}</h1>
 
+        {solicitudesPlazo.length > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+            <p className="text-sm font-medium text-amber-800 mb-2">
+              ⏳ Solicitudes de más plazo ({solicitudesPlazo.length})
+            </p>
+            <div className="flex flex-col gap-2">
+              {solicitudesPlazo.map((s) => (
+                <div key={s.id} className="flex items-center justify-between bg-white rounded-lg px-3 py-2">
+                  <div>
+                    <p className="text-sm text-slate-700">{s.perfiles?.nombre}</p>
+                    <p className="text-xs text-slate-400">{s.perfiles?.email}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Link
+                      to={`/curso/${id}`}
+                      className="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded-md"
+                    >
+                      Ir a curso
+                    </Link>
+                    <button
+                      onClick={() => resolverSolicitud(s.id)}
+                      className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-md"
+                    >
+                      Marcar como resuelta
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-amber-700 mt-2">
+              Cambia la fecha límite en Configuración para reactivar el curso antes de marcar como resuelta.
+            </p>
+          </div>
+        )}
+
+        <nav className="flex items-center gap-4 border-b border-slate-200 mb-6 text-sm">
+          {[
+            { id: 'configuracion', label: 'Configuración' },
+            { id: 'temas', label: 'Temas' },
+          ].map((s) => (
+            <button
+              key={s.id}
+              onClick={() => setSeccion(s.id)}
+              className={`pb-2 border-b-2 -mb-px ${
+                seccion === s.id
+                  ? 'border-indigo-600 text-indigo-600 font-medium'
+                  : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </nav>
+
+        {seccion === 'configuracion' && (
         <div className="bg-white border border-slate-200 rounded-xl p-4 mb-6 flex flex-col gap-2">
           <p className="text-sm font-medium text-slate-700 mb-1">Configuración del curso</p>
 
@@ -322,42 +378,10 @@ export default function AdminCurso() {
             Mostrar ranking
           </label>
         </div>
-
-        {solicitudesPlazo.length > 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
-            <p className="text-sm font-medium text-amber-800 mb-2">
-              ⏳ Solicitudes de más plazo ({solicitudesPlazo.length})
-            </p>
-            <div className="flex flex-col gap-2">
-              {solicitudesPlazo.map((s) => (
-                <div key={s.id} className="flex items-center justify-between bg-white rounded-lg px-3 py-2">
-                  <div>
-                    <p className="text-sm text-slate-700">{s.perfiles?.nombre}</p>
-                    <p className="text-xs text-slate-400">{s.perfiles?.email}</p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Link
-                      to={`/curso/${id}`}
-                      className="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded-md"
-                    >
-                      Ir a curso
-                    </Link>
-                    <button
-                      onClick={() => resolverSolicitud(s.id)}
-                      className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-md"
-                    >
-                      Marcar como resuelta
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <p className="text-xs text-amber-700 mt-2">
-              Cambia la fecha límite arriba para reactivar el curso antes de marcar como resuelta.
-            </p>
-          </div>
         )}
 
+        {seccion === 'temas' && (
+        <>
         <form onSubmit={crearTema} className="bg-white border border-slate-200 rounded-xl p-4 mb-6 flex gap-2">
           <input
             type="text"
@@ -498,6 +522,8 @@ export default function AdminCurso() {
             </div>
           ))}
         </div>
+        </>
+        )}
       </main>
     </div>
   )
