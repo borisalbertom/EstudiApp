@@ -18,9 +18,11 @@ export default function Home() {
   }, [])
 
   async function cargarCursos() {
+    const hoy = new Date().toISOString().slice(0, 10)
     const { data, error } = await supabase
       .from('cursos')
       .select('id, nombre, descripcion, visibilidad, organizaciones(nombre_empresa)')
+      .or(`fecha_fin.is.null,fecha_fin.gte.${hoy}`)
       .order('creado_en', { ascending: false })
 
     if (!error) setCursos(data || [])

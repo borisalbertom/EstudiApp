@@ -34,7 +34,7 @@ export default function CursoDetalle() {
     const [{ data: cursoData }, { data: temasData }] = await Promise.all([
       supabase
         .from('cursos')
-        .select('id, nombre, descripcion, permite_duelos, permite_individual, mostrar_ranking, cantidad_preguntas, duelo_todo_curso')
+        .select('id, nombre, descripcion, permite_duelos, permite_individual, mostrar_ranking, cantidad_preguntas, duelo_todo_curso, fecha_fin')
         .eq('id', id)
         .single(),
       supabase.from('temas').select('id, nombre, orden').eq('curso_id', id).order('orden', { ascending: true }),
@@ -98,6 +98,9 @@ export default function CursoDetalle() {
     )
   }
 
+  const hoy = new Date().toISOString().slice(0, 10)
+  const vencido = curso.fecha_fin && curso.fecha_fin < hoy
+
   return (
     <div className="min-h-screen bg-slate-50">
       <NavBar />
@@ -113,7 +116,13 @@ export default function CursoDetalle() {
         </div>
         {curso.descripcion && <p className="text-sm text-slate-500 mt-1">{curso.descripcion}</p>}
 
-        {curso.permite_individual && temas.length > 1 && (
+        {vencido && (
+          <div className="mt-4 bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">
+            ⏳ Este curso ya no está disponible — venció el {curso.fecha_fin}.
+          </div>
+        )}
+
+        {!vencido && curso.permite_individual && temas.length > 1 && (
           <Link
             to={`/curso/${id}/examen`}
             className="mt-4 flex items-center justify-between bg-indigo-600 text-white rounded-xl px-4 py-3 hover:bg-indigo-700"
@@ -123,7 +132,7 @@ export default function CursoDetalle() {
           </Link>
         )}
 
-        {curso.permite_duelos && curso.duelo_todo_curso && (
+        {!vencido && curso.permite_duelos && curso.duelo_todo_curso && (
           <div className="mt-4 bg-white border border-indigo-200 rounded-xl p-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <p className="text-sm font-medium text-slate-800">🎯 Retar a un amigo (todo el curso)</p>
@@ -200,7 +209,7 @@ export default function CursoDetalle() {
                     <option value="media">Media</option>
                     <option value="dificil">Difícil</option>
                   </select>
-                  {curso.permite_individual && (
+                  {!vencido && curso.permite_individual && (
                     <Link
                       to={`/curso/${id}/tema/${t.id}/individual?dificultad=${dificultadDe(t.id)}`}
                       className="text-xs bg-slate-100 text-slate-600 px-3 py-1 rounded-md"
@@ -208,7 +217,7 @@ export default function CursoDetalle() {
                       Practicar solo
                     </Link>
                   )}
-                  {curso.permite_duelos && !curso.duelo_todo_curso && (
+                  {!vencido && curso.permite_duelos && !curso.duelo_todo_curso && (
                     <button
                       onClick={() => setTemaRetando(temaRetando === t.id ? null : t.id)}
                       className="text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded-md"

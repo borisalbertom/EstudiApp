@@ -2,6 +2,12 @@ import { supabase } from './supabase'
 import { elegirPreguntas } from './preguntas'
 
 export async function crearDuelo({ cursoId, temaId, cantidadPreguntas, dificultad, jugador1Id, jugador2Id }) {
+  const { data: curso } = await supabase.from('cursos').select('fecha_fin').eq('id', cursoId).single()
+  const hoy = new Date().toISOString().slice(0, 10)
+  if (curso?.fecha_fin && curso.fecha_fin < hoy) {
+    return { error: 'Este curso ya no está disponible para nuevos duelos.' }
+  }
+
   let consultaExistentes = supabase
     .from('duelos')
     .select('id')

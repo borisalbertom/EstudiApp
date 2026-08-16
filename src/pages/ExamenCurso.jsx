@@ -47,10 +47,17 @@ export default function ExamenCurso() {
     setError('')
 
     const [{ data: cursoData }, { data: temasData }] = await Promise.all([
-      supabase.from('cursos').select('id, nombre, porcentaje_certificacion, cantidad_preguntas, tiempo_por_pregunta').eq('id', cursoId).single(),
+      supabase.from('cursos').select('id, nombre, porcentaje_certificacion, cantidad_preguntas, tiempo_por_pregunta, fecha_fin').eq('id', cursoId).single(),
       supabase.from('temas').select('id').eq('curso_id', cursoId),
     ])
     setCurso(cursoData)
+
+    const hoy = new Date().toISOString().slice(0, 10)
+    if (cursoData?.fecha_fin && cursoData.fecha_fin < hoy) {
+      setError('Este curso ya no está disponible para rendir el examen.')
+      setCargando(false)
+      return
+    }
 
     const temaIds = (temasData || []).map((t) => t.id)
     if (temaIds.length === 0) {

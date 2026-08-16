@@ -21,6 +21,7 @@ export default function AdminCursos() {
   const [cantidadPreguntas, setCantidadPreguntas] = useState(5)
   const [porcentajeCertificacion, setPorcentajeCertificacion] = useState(70)
   const [tiempoPorPregunta, setTiempoPorPregunta] = useState(0)
+  const [fechaFin, setFechaFin] = useState('')
   const [creando, setCreando] = useState(false)
   const [error, setError] = useState('')
   const [mostrarFormulario, setMostrarFormulario] = useState(false)
@@ -33,7 +34,7 @@ export default function AdminCursos() {
   async function cargarCursos() {
     let consulta = supabase
       .from('cursos')
-      .select('id, nombre, visibilidad, organizacion_id, organizaciones(nombre_empresa)')
+      .select('id, nombre, visibilidad, organizacion_id, fecha_fin, organizaciones(nombre_empresa)')
       .order('creado_en', { ascending: false })
     if (!esSuperAdmin) consulta = consulta.in('organizacion_id', orgsAdmin)
     const { data } = await consulta
@@ -74,6 +75,7 @@ export default function AdminCursos() {
       cantidad_preguntas: cantidadPreguntas,
       porcentaje_certificacion: porcentajeCertificacion,
       tiempo_por_pregunta: tiempoPorPregunta,
+      fecha_fin: fechaFin || null,
     })
 
     if (error) setError('No se pudo crear el curso.')
@@ -88,6 +90,7 @@ export default function AdminCursos() {
       setCantidadPreguntas(5)
       setPorcentajeCertificacion(70)
       setTiempoPorPregunta(0)
+      setFechaFin('')
       setMostrarFormulario(false)
       cargarCursos()
     }
@@ -195,6 +198,16 @@ export default function AdminCursos() {
             />
           </label>
 
+          <label className="text-xs text-slate-500">
+            Fecha límite de publicación (vacío = sin fecha de término)
+            <input
+              type="date"
+              value={fechaFin}
+              onChange={(e) => setFechaFin(e.target.value)}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1"
+            />
+          </label>
+
           <div className="flex flex-col gap-2 text-sm text-slate-600">
             <div className="flex gap-4">
               <label className="flex items-center gap-1.5">
@@ -269,21 +282,31 @@ export default function AdminCursos() {
         {cargando && <p className="text-sm text-slate-400">Cargando...</p>}
 
         <div className="flex flex-col gap-2">
-          {cursos.map((c) => (
-            <Link
-              key={c.id}
-              to={`/admin/curso/${c.id}`}
-              className="bg-white border border-slate-200 rounded-xl p-4 flex items-center justify-between hover:border-indigo-300"
-            >
-              <div>
-                <p className="font-medium text-slate-800">{c.nombre}</p>
-                <p className="text-xs text-slate-500">
-                  {c.visibilidad === 'publico' ? 'Público' : `Privado · ${c.organizaciones?.nombre_empresa || 'Empresa'}`}
-                </p>
-              </div>
-              <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded-md">Gestionar</span>
-            </Link>
-          ))}
+          {cursos.map((c) => {
+            const vencido = c.fecha_fin && c.fecha_fin < new Date().toISOString().slice(0, 10)
+            return (
+              <Link
+                key={c.id}
+                to={`/admin/curso/${c.id}`}
+                className="bg-white border border-slate-200 rounded-xl p-4 flex items-center justify-between hover:border-indigo-300"
+              >
+                <div>
+                  <p className="font-medium text-slate-800">{c.nombre}</p>
+                  <p className="text-xs text-slate-500">
+                    {c.visibilidad === 'publico' ? 'Público' : `Privado · ${c.organizaciones?.nombre_empresa || 'Empresa'}`}
+                    {c.fecha_fin && ` · ${vencido ? 'Vencido' : 'Vence'} ${c.fecha_fin}`}
+                  </p>
+                </div>
+                <span
+                  className={`text-xs px-2 py-1 rounded-md shrink-0 ${
+                    vencido ? 'bg-red-50 text-red-600' : 'bg-indigo-50 text-indigo-600'
+                  }`}
+                >
+                  {vencido ? 'Vencido' : 'Gestionar'}
+                </span>
+              </Link>
+            )
+          })}
         </div>
       </main>
     </div>

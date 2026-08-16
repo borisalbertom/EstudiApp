@@ -51,11 +51,18 @@ export default function PracticaIndividual() {
     setError('')
 
     const [{ data: cursoData }, { data: temaData }] = await Promise.all([
-      supabase.from('cursos').select('id, nombre, porcentaje_certificacion, cantidad_preguntas, tiempo_por_pregunta').eq('id', cursoId).single(),
+      supabase.from('cursos').select('id, nombre, porcentaje_certificacion, cantidad_preguntas, tiempo_por_pregunta, fecha_fin').eq('id', cursoId).single(),
       supabase.from('temas').select('id, nombre, tiempo_por_pregunta').eq('id', temaId).single(),
     ])
     setCurso(cursoData)
     setTema(temaData)
+
+    const hoy = new Date().toISOString().slice(0, 10)
+    if (cursoData?.fecha_fin && cursoData.fecha_fin < hoy) {
+      setError('Este curso ya no está disponible para practicar.')
+      setCargando(false)
+      return
+    }
 
     const cantidadPreguntas = cursoData?.cantidad_preguntas || 5
     const { ids: idsElegidos, error: errorSeleccion } = await elegirPreguntas({

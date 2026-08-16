@@ -30,7 +30,7 @@ export default function AdminCurso() {
     const [{ data: cursoData }, { data: temasData }] = await Promise.all([
       supabase
         .from('cursos')
-        .select('id, nombre, organizacion_id, permite_duelos, permite_individual, mostrar_ranking, cantidad_preguntas, porcentaje_certificacion, tiempo_por_pregunta, duelo_todo_curso')
+        .select('id, nombre, organizacion_id, permite_duelos, permite_individual, mostrar_ranking, cantidad_preguntas, porcentaje_certificacion, tiempo_por_pregunta, duelo_todo_curso, fecha_fin')
         .eq('id', id)
         .single(),
       supabase.from('temas').select('id, nombre, orden, tiempo_por_pregunta').eq('curso_id', id).order('orden', { ascending: true }),
@@ -176,6 +176,21 @@ export default function AdminCurso() {
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1"
             />
           </label>
+
+          <label className="text-xs text-slate-500 mb-1">
+            Fecha límite de publicación (vacío = sin fecha de término)
+            <input
+              type="date"
+              value={curso?.fecha_fin ?? ''}
+              onChange={(e) => actualizarConfig('fecha_fin', e.target.value || null)}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1"
+            />
+          </label>
+          {curso?.fecha_fin && curso.fecha_fin < new Date().toISOString().slice(0, 10) && (
+            <p className="text-xs text-red-500 -mt-1">
+              ⚠️ Este curso ya venció y está oculto para los usuarios. Cambia o borra la fecha para reactivarlo.
+            </p>
+          )}
 
           <div className="flex gap-4 text-sm text-slate-600">
             <label className="flex items-center gap-1.5">
