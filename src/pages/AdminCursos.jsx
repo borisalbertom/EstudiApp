@@ -5,13 +5,14 @@ import { useAuth } from '../contexts/AuthContext'
 import NavBar from '../components/NavBar'
 
 export default function AdminCursos() {
-  const { perfil } = useAuth()
+  const { perfil, orgsAdmin } = useAuth()
+  const esSuperAdmin = perfil?.es_admin_plataforma || false
   const [cursos, setCursos] = useState([])
   const [organizaciones, setOrganizaciones] = useState([])
   const [cargando, setCargando] = useState(true)
   const [nombre, setNombre] = useState('')
   const [descripcion, setDescripcion] = useState('')
-  const [visibilidad, setVisibilidad] = useState('publico')
+  const [visibilidad, setVisibilidad] = useState(esSuperAdmin ? 'publico' : 'privado')
   const [organizacionId, setOrganizacionId] = useState('')
   const [tipoCurso, setTipoCurso] = useState('retos') // 'retos' | 'certificacion'
   const [dueloTodoCurso, setDueloTodoCurso] = useState(false)
@@ -29,30 +30,41 @@ export default function AdminCursos() {
   }, [])
 
   async function cargarCursos() {
-    const { data } = await supabase
+    let consulta = supabase
       .from('cursos')
-      .select('id, nombre, visibilidad, organizaciones(nombre_empresa)')
+      .select('id, nombre, visibilidad, organizacion_id, organizaciones(nombre_empresa)')
       .order('creado_en', { ascending: false })
+    if (!esSuperAdmin) consulta = consulta.in('organizacion_id', orgsAdmin)
+    const { data } = await consulta
     setCursos(data || [])
     setCargando(false)
   }
 
   async function cargarOrganizaciones() {
-    const { data } = await supabase.from('organizaciones').select('id, nombre_empresa')
+    let consulta = supabase.from('organizaciones').select('id, nombre_empresa')
+    if (!esSuperAdmin) consulta = consulta.in('id', orgsAdmin)
+    const { data } = await consulta
     setOrganizaciones(data || [])
+    if (!esSuperAdmin && data?.length === 1) setOrganizacionId(data[0].id)
   }
 
   async function crearCurso(e) {
     e.preventDefault()
     if (!nombre.trim()) return
+    if (!esSuperAdmin && !organizacionId) {
+      setError('Selecciona una organización.')
+      return
+    }
     setCreando(true)
     setError('')
+
+    const visibilidadFinal = esSuperAdmin ? visibilidad : 'privado'
 
     const { error } = await supabase.from('cursos').insert({
       nombre: nombre.trim(),
       descripcion: descripcion.trim() || null,
-      visibilidad,
-      organizacion_id: visibilidad === 'privado' ? organizacionId || null : null,
+      visibilidad: visibilidadFinal,
+      organizacion_id: visibilidadFinal === 'privado' ? organizacionId || null : null,
       creado_por: perfil.id,
       permite_duelos: tipoCurso === 'retos',
       permite_individual: tipoCurso === 'certificacion',
@@ -67,8 +79,8 @@ export default function AdminCursos() {
     else {
       setNombre('')
       setDescripcion('')
-      setVisibilidad('publico')
-      setOrganizacionId('')
+      setVisibilidad(esSuperAdmin ? 'publico' : 'privado')
+      setOrganizacionId(!esSuperAdmin && organizaciones.length === 1 ? organizaciones[0].id : '')
       setTipoCurso('retos')
       setDueloTodoCurso(false)
       setMostrarRanking(true)
@@ -81,7 +93,7 @@ export default function AdminCursos() {
     setCreando(false)
   }
 
-  if (!perfil?.es_admin_plataforma) {
+  if (!esSuperAdmin && orgsAdmin.length === 0) {
     return (
       <div className="min-h-screen bg-slate-50">
         <NavBar />
@@ -98,14 +110,16 @@ export default function AdminCursos() {
       <main className="max-w-3xl mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-4">
           <p className="text-lg font-medium text-slate-800">Administrar cursos</p>
-          <div className="flex gap-3">
-            <Link to="/admin/logros" className="text-xs text-indigo-600 hover:underline">
-              Logros →
-            </Link>
-            <Link to="/admin/organizaciones" className="text-xs text-indigo-600 hover:underline">
-              Organizaciones →
-            </Link>
-          </div>
+          {esSuperAdmin && (
+            <div className="flex gap-3">
+              <Link to="/admin/logros" className="text-xs text-indigo-600 hover:underline">
+                Logros →
+              </Link>
+              <Link to="/admin/organizaciones" className="text-xs text-indigo-600 hover:underline">
+                Organizaciones →
+              </Link>
+            </div>
+          )}
         </div>
 
         <button
@@ -133,26 +147,28 @@ export default function AdminCursos() {
             className="border border-slate-300 rounded-lg px-3 py-2 text-sm"
             rows={2}
           />
-          <div className="flex gap-4 text-sm text-slate-600">
-            <label className="flex items-center gap-1.5">
-              <input
-                type="radio"
-                checked={visibilidad === 'publico'}
-                onChange={() => setVisibilidad('publico')}
-              />
-              Público (gratis)
-            </label>
-            <label className="flex items-center gap-1.5">
-              <input
-                type="radio"
-                checked={visibilidad === 'privado'}
-                onChange={() => setVisibilidad('privado')}
-              />
-              Privado (empresa)
-            </label>
-          </div>
+          {esSuperAdmin && (
+            <div className="flex gap-4 text-sm text-slate-600">
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="radio"
+                  checked={visibilidad === 'publico'}
+                  onChange={() => setVisibilidad('publico')}
+                />
+                Público (gratis)
+              </label>
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="radio"
+                  checked={visibilidad === 'privado'}
+                  onChange={() => setVisibilidad('privado')}
+                />
+                Privado (empresa)
+              </label>
+            </div>
+          )}
 
-          {visibilidad === 'privado' && (
+          {(esSuperAdmin ? visibilidad === 'privado' : true) && (
             <select
               value={organizacionId}
               onChange={(e) => setOrganizacionId(e.target.value)}

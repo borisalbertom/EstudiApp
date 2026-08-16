@@ -6,7 +6,8 @@ import NavBar from '../components/NavBar'
 
 export default function AdminCurso() {
   const { id } = useParams()
-  const { perfil } = useAuth()
+  const { perfil, orgsAdmin } = useAuth()
+  const esSuperAdmin = perfil?.es_admin_plataforma || false
 
   const [curso, setCurso] = useState(null)
   const [temas, setTemas] = useState([])
@@ -29,7 +30,7 @@ export default function AdminCurso() {
     const [{ data: cursoData }, { data: temasData }] = await Promise.all([
       supabase
         .from('cursos')
-        .select('id, nombre, permite_duelos, permite_individual, mostrar_ranking, cantidad_preguntas, porcentaje_certificacion, tiempo_por_pregunta, duelo_todo_curso')
+        .select('id, nombre, organizacion_id, permite_duelos, permite_individual, mostrar_ranking, cantidad_preguntas, porcentaje_certificacion, tiempo_por_pregunta, duelo_todo_curso')
         .eq('id', id)
         .single(),
       supabase.from('temas').select('id, nombre, orden, tiempo_por_pregunta').eq('curso_id', id).order('orden', { ascending: true }),
@@ -120,22 +121,24 @@ export default function AdminCurso() {
     await supabase.from('cursos').update(cambios).eq('id', id)
   }
 
-  if (!perfil?.es_admin_plataforma) {
+  if (cargando) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <NavBar />
+        <main className="max-w-3xl mx-auto px-4 py-6 text-sm text-slate-400">Cargando...</main>
+      </div>
+    )
+  }
+
+  const tieneAcceso = esSuperAdmin || (curso?.organizacion_id && orgsAdmin.includes(curso.organizacion_id))
+
+  if (!tieneAcceso) {
     return (
       <div className="min-h-screen bg-slate-50">
         <NavBar />
         <main className="max-w-3xl mx-auto px-4 py-6">
           <p className="text-sm text-slate-500">No tienes permisos para ver esta página.</p>
         </main>
-      </div>
-    )
-  }
-
-  if (cargando) {
-    return (
-      <div className="min-h-screen bg-slate-50">
-        <NavBar />
-        <main className="max-w-3xl mx-auto px-4 py-6 text-sm text-slate-400">Cargando...</main>
       </div>
     )
   }

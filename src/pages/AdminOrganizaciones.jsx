@@ -14,10 +14,35 @@ export default function AdminOrganizaciones() {
   const [dominioEmail, setDominioEmail] = useState('')
   const [creando, setCreando] = useState(false)
   const [error, setError] = useState('')
+  const [orgExpandida, setOrgExpandida] = useState(null)
+  const [miembrosPorOrg, setMiembrosPorOrg] = useState({})
 
   useEffect(() => {
     cargarOrganizaciones()
   }, [])
+
+  async function alternarOrg(orgId) {
+    if (orgExpandida === orgId) {
+      setOrgExpandida(null)
+      return
+    }
+    setOrgExpandida(orgId)
+    if (!miembrosPorOrg[orgId]) await cargarMiembros(orgId)
+  }
+
+  async function cargarMiembros(orgId) {
+    const { data } = await supabase
+      .from('miembros_organizacion')
+      .select('id, usuario_id, rol, perfiles(nombre, email)')
+      .eq('organizacion_id', orgId)
+    setMiembrosPorOrg((prev) => ({ ...prev, [orgId]: data || [] }))
+  }
+
+  async function alternarRolMiembro(miembro, orgId) {
+    const nuevoRol = miembro.rol === 'admin_curso' ? 'miembro' : 'admin_curso'
+    await supabase.from('miembros_organizacion').update({ rol: nuevoRol }).eq('id', miembro.id)
+    cargarMiembros(orgId)
+  }
 
   async function cargarOrganizaciones() {
     const { data } = await supabase
@@ -128,11 +153,42 @@ export default function AdminOrganizaciones() {
           )}
           {organizaciones.map((o) => (
             <div key={o.id} className="bg-white border border-slate-200 rounded-xl p-4">
-              <p className="font-medium text-slate-800">{o.nombre_empresa}</p>
-              <p className="text-xs text-slate-500">
-                {o.giro && `${o.giro} · `}
-                {o.dominio_email ? `@${o.dominio_email}` : 'Sin dominio configurado'}
-              </p>
+              <button onClick={() => alternarOrg(o.id)} className="w-full flex items-center justify-between text-left">
+                <div>
+                  <p className="font-medium text-slate-800">{o.nombre_empresa}</p>
+                  <p className="text-xs text-slate-500">
+                    {o.giro && `${o.giro} · `}
+                    {o.dominio_email ? `@${o.dominio_email}` : 'Sin dominio configurado'}
+                  </p>
+                </div>
+                <span className="text-xs text-indigo-600 shrink-0">
+                  {orgExpandida === o.id ? 'Ocultar miembros' : 'Ver miembros'}
+                </span>
+              </button>
+
+              {orgExpandida === o.id && (
+                <div className="mt-3 border-t border-slate-100 pt-3 flex flex-col gap-2">
+                  {(miembrosPorOrg[o.id] || []).length === 0 && (
+                    <p className="text-xs text-slate-400">Todavía no hay miembros en esta organización.</p>
+                  )}
+                  {(miembrosPorOrg[o.id] || []).map((m) => (
+                    <div key={m.id} className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2">
+                      <div>
+                        <p className="text-sm text-slate-700">{m.perfiles?.nombre}</p>
+                        <p className="text-xs text-slate-400">{m.perfiles?.email}</p>
+                      </div>
+                      <button
+                        onClick={() => alternarRolMiembro(m, o.id)}
+                        className={`text-xs px-2 py-1 rounded-md shrink-0 ${
+                          m.rol === 'admin_curso' ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-600'
+                        }`}
+                      >
+                        {m.rol === 'admin_curso' ? 'Admin de cursos' : 'Hacer admin de cursos'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>

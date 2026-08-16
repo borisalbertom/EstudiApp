@@ -9,7 +9,7 @@ const links = [
 ]
 
 export default function NavBar() {
-  const { perfil, cerrarSesion } = useAuth()
+  const { perfil, orgsAdmin, cerrarSesion } = useAuth()
   const [solicitudesPendientes, setSolicitudesPendientes] = useState(0)
   const [duelosPendientes, setDuelosPendientes] = useState(0)
 
@@ -50,7 +50,7 @@ export default function NavBar() {
     setDuelosPendientes(pendientes.length)
   }
 
-  const todosLosLinks = perfil?.es_admin_plataforma
+  const todosLosLinks = perfil?.es_admin_plataforma || orgsAdmin?.length > 0
     ? [...links, { to: '/admin', label: 'Administrar cursos', labelCorto: 'Admin' }]
     : links
 
