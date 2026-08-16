@@ -1,18 +1,15 @@
 import { useEffect, useState } from 'react'
-import { useParams, useSearchParams, Link } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { elegirPreguntas } from '../lib/preguntas'
 import NavBar from '../components/NavBar'
 
-export default function PracticaIndividual() {
-  const { cursoId, temaId } = useParams()
-  const [searchParams] = useSearchParams()
-  const dificultad = searchParams.get('dificultad') || 'todas'
+export default function ExamenCurso() {
+  const { cursoId } = useParams()
   const { perfil, recargarPerfil } = useAuth()
 
   const [curso, setCurso] = useState(null)
-  const [tema, setTema] = useState(null)
   const [preguntas, setPreguntas] = useState([])
   const [indice, setIndice] = useState(0)
   const [correctas, setCorrectas] = useState(0)
@@ -25,7 +22,7 @@ export default function PracticaIndividual() {
 
   useEffect(() => {
     cargarPreguntas()
-  }, [temaId])
+  }, [cursoId])
 
   useEffect(() => {
     const tiempoPorPregunta = curso?.tiempo_por_pregunta || 0
@@ -49,17 +46,23 @@ export default function PracticaIndividual() {
     setCargando(true)
     setError('')
 
-    const [{ data: cursoData }, { data: temaData }] = await Promise.all([
+    const [{ data: cursoData }, { data: temasData }] = await Promise.all([
       supabase.from('cursos').select('id, nombre, porcentaje_certificacion, cantidad_preguntas, tiempo_por_pregunta').eq('id', cursoId).single(),
-      supabase.from('temas').select('id, nombre').eq('id', temaId).single(),
+      supabase.from('temas').select('id').eq('curso_id', cursoId),
     ])
     setCurso(cursoData)
-    setTema(temaData)
+
+    const temaIds = (temasData || []).map((t) => t.id)
+    if (temaIds.length === 0) {
+      setError('Este curso todavía no tiene temas cargados.')
+      setCargando(false)
+      return
+    }
 
     const cantidadPreguntas = cursoData?.cantidad_preguntas || 5
     const { ids: idsElegidos, error: errorSeleccion } = await elegirPreguntas({
-      temaIds: [temaId],
-      dificultad,
+      temaIds,
+      dificultad: 'todas',
       cantidad: cantidadPreguntas,
       usuarioId: perfil.id,
     })
@@ -117,7 +120,7 @@ export default function PracticaIndividual() {
     await supabase.from('intentos_individuales').insert({
       usuario_id: perfil.id,
       curso_id: cursoId,
-      tema_id: temaId,
+      tema_id: null,
       cantidad_preguntas: preguntas.length,
       correctas: totalCorrectas,
     })
@@ -128,7 +131,7 @@ export default function PracticaIndividual() {
     return (
       <div className="min-h-screen bg-slate-50">
         <NavBar />
-        <main className="max-w-3xl mx-auto px-4 py-6 text-sm text-slate-400">Cargando...</main>
+        <main className="max-w-3xl mx-auto px-4 py-6 text-sm text-slate-400">Cargando examen...</main>
       </div>
     )
   }
@@ -153,7 +156,7 @@ export default function PracticaIndividual() {
       <div className="min-h-screen bg-slate-50">
         <NavBar />
         <main className="max-w-3xl mx-auto px-4 py-6">
-          <p className="text-sm font-medium text-slate-700 mb-4">Resultado — {tema?.nombre}</p>
+          <p className="text-sm font-medium text-slate-700 mb-4">Resultado del examen — {curso?.nombre}</p>
           <div className="bg-white border border-slate-200 rounded-xl p-6 text-center">
             <p className="text-3xl font-semibold text-slate-800">{correctas}/{preguntas.length}</p>
             <p className="text-sm text-slate-500 mt-1">{porcentaje}% de respuestas correctas</p>
@@ -202,7 +205,7 @@ export default function PracticaIndividual() {
       <main className="max-w-3xl mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-1">
           <p className="text-xs text-slate-400">
-            {tema?.nombre} · Pregunta {indice + 1} de {preguntas.length}
+            Examen · {curso?.nombre} · Pregunta {indice + 1} de {preguntas.length}
           </p>
           {curso?.tiempo_por_pregunta > 0 && seleccionada === null && (
             <p className={`text-sm font-medium ${tiempoRestante <= 5 ? 'text-red-500' : 'text-slate-500'}`}>

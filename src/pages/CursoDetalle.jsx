@@ -112,6 +112,16 @@ export default function CursoDetalle() {
         </div>
         {curso.descripcion && <p className="text-sm text-slate-500 mt-1">{curso.descripcion}</p>}
 
+        {curso.permite_individual && temas.length > 1 && (
+          <Link
+            to={`/curso/${id}/examen`}
+            className="mt-4 flex items-center justify-between bg-indigo-600 text-white rounded-xl px-4 py-3 hover:bg-indigo-700"
+          >
+            <span className="text-sm font-medium">📝 Simular examen completo</span>
+            <span className="text-xs">Todos los temas →</span>
+          </Link>
+        )}
+
         {error && <p className="text-xs text-red-500 mt-4">{error}</p>}
 
         <p className="text-sm font-medium text-slate-700 mt-6 mb-2">Temas</p>

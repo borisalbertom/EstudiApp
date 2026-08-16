@@ -9,6 +9,7 @@ import CursoDetalle from './pages/CursoDetalle'
 import JugarDuelo from './pages/JugarDuelo'
 import ResultadoDuelo from './pages/ResultadoDuelo'
 import PracticaIndividual from './pages/PracticaIndividual'
+import ExamenCurso from './pages/ExamenCurso'
 import RankingCurso from './pages/RankingCurso'
 import AdminCursos from './pages/AdminCursos'
 import AdminCurso from './pages/AdminCurso'
@@ -59,6 +60,14 @@ export default function App() {
             element={
               <RutaProtegida>
                 <PracticaIndividual />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/curso/:cursoId/examen"
+            element={
+              <RutaProtegida>
+                <ExamenCurso />
               </RutaProtegida>
             }
           />
