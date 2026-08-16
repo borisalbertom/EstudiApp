@@ -12,6 +12,17 @@ export default function Perfil() {
   const [logrosObtenidos, setLogrosObtenidos] = useState(0)
   const inputRef = useRef(null)
 
+  const [editandoNombre, setEditandoNombre] = useState(false)
+  const [nombreEditado, setNombreEditado] = useState('')
+  const [guardandoNombre, setGuardandoNombre] = useState(false)
+
+  const [nuevaPassword, setNuevaPassword] = useState('')
+  const [confirmarPassword, setConfirmarPassword] = useState('')
+  const [mostrarPassword, setMostrarPassword] = useState(false)
+  const [cambiandoPassword, setCambiandoPassword] = useState(false)
+  const [errorPassword, setErrorPassword] = useState('')
+  const [mensajePassword, setMensajePassword] = useState('')
+
   useEffect(() => {
     cargarResumenLogros()
   }, [])
@@ -53,10 +64,50 @@ export default function Perfil() {
     setSubiendo(false)
   }
 
+  async function guardarNombre() {
+    if (!nombreEditado.trim()) return
+    setGuardandoNombre(true)
+    await supabase.from('perfiles').update({ nombre: nombreEditado.trim() }).eq('id', perfil.id)
+    recargarPerfil()
+    setEditandoNombre(false)
+    setGuardandoNombre(false)
+  }
+
+  async function cambiarPassword(e) {
+    e.preventDefault()
+    setErrorPassword('')
+    setMensajePassword('')
+
+    if (nuevaPassword.length < 6) {
+      setErrorPassword('La contraseña debe tener al menos 6 caracteres.')
+      return
+    }
+    if (nuevaPassword !== confirmarPassword) {
+      setErrorPassword('Las contraseñas no coinciden.')
+      return
+    }
+
+    setCambiandoPassword(true)
+    const { error } = await supabase.auth.updateUser({ password: nuevaPassword })
+
+    if (error) {
+      setErrorPassword(
+        error.message?.includes('different from the old')
+          ? 'La nueva contraseña debe ser distinta a la actual.'
+          : 'No se pudo cambiar la contraseña. Intenta de nuevo.'
+      )
+    } else {
+      setMensajePassword('Contraseña actualizada ✅')
+      setNuevaPassword('')
+      setConfirmarPassword('')
+    }
+    setCambiandoPassword(false)
+  }
+
   return (
     <div className="min-h-screen bg-slate-50">
       <NavBar />
-      <main className="max-w-3xl mx-auto px-4 py-6">
+      <main className="max-w-3xl mx-auto px-4 py-6 flex flex-col gap-4">
         <div className="bg-white border border-slate-200 rounded-xl p-6">
           <button
             onClick={() => inputRef.current?.click()}
@@ -81,7 +132,36 @@ export default function Perfil() {
           />
           {error && <p className="text-xs text-red-500 mb-2">{error}</p>}
 
-          <p className="font-medium text-slate-800">{perfil?.nombre}</p>
+          {editandoNombre ? (
+            <div className="flex items-center gap-2 mb-1">
+              <input
+                type="text"
+                value={nombreEditado}
+                onChange={(e) => setNombreEditado(e.target.value)}
+                className="border border-slate-300 rounded-lg px-2 py-1 text-sm"
+                autoFocus
+              />
+              <button onClick={guardarNombre} disabled={guardandoNombre} className="text-xs text-indigo-600">
+                {guardandoNombre ? 'Guardando...' : 'Guardar'}
+              </button>
+              <button onClick={() => setEditandoNombre(false)} className="text-xs text-slate-400">
+                Cancelar
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 mb-1">
+              <p className="font-medium text-slate-800">{perfil?.nombre}</p>
+              <button
+                onClick={() => {
+                  setEditandoNombre(true)
+                  setNombreEditado(perfil?.nombre || '')
+                }}
+                className="text-xs text-slate-400 hover:text-indigo-600"
+              >
+                Editar
+              </button>
+            </div>
+          )}
           <p className="text-sm text-slate-500 mb-4">{session?.user?.email}</p>
 
           <div className="grid grid-cols-2 gap-3">
@@ -102,6 +182,48 @@ export default function Perfil() {
             <span className="text-sm text-slate-700">🏆 Logros</span>
             <span className="text-sm text-indigo-600">{logrosObtenidos}/{totalLogros} →</span>
           </Link>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-xl p-6">
+          <p className="text-sm font-medium text-slate-700 mb-3">Cambiar contraseña</p>
+          <form onSubmit={cambiarPassword} className="flex flex-col gap-2">
+            <div className="relative">
+              <input
+                type={mostrarPassword ? 'text' : 'password'}
+                placeholder="Nueva contraseña"
+                value={nuevaPassword}
+                onChange={(e) => setNuevaPassword(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 pr-14 text-sm"
+                minLength={6}
+              />
+              <button
+                type="button"
+                onClick={() => setMostrarPassword(!mostrarPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600"
+              >
+                {mostrarPassword ? 'Ocultar' : 'Ver'}
+              </button>
+            </div>
+            <input
+              type={mostrarPassword ? 'text' : 'password'}
+              placeholder="Confirmar contraseña"
+              value={confirmarPassword}
+              onChange={(e) => setConfirmarPassword(e.target.value)}
+              className="border border-slate-300 rounded-lg px-3 py-2 text-sm"
+              minLength={6}
+            />
+
+            {errorPassword && <p className="text-xs text-red-500">{errorPassword}</p>}
+            {mensajePassword && <p className="text-xs text-green-600">{mensajePassword}</p>}
+
+            <button
+              type="submit"
+              disabled={cambiandoPassword || !nuevaPassword}
+              className="bg-indigo-600 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50"
+            >
+              {cambiandoPassword ? 'Cambiando...' : 'Cambiar contraseña'}
+            </button>
+          </form>
         </div>
       </main>
     </div>
