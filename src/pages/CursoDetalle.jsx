@@ -185,7 +185,7 @@ export default function CursoDetalle() {
             className="mt-4 flex items-center justify-between bg-indigo-600 text-white rounded-xl px-4 py-3 hover:bg-indigo-700"
           >
             <span className="text-sm font-medium">📝 Simular examen completo</span>
-            <span className="text-xs">Todos los temas →</span>
+            <span className="text-xs">Todo el contenido →</span>
           </Link>
         )}
 
@@ -242,11 +242,11 @@ export default function CursoDetalle() {
 
         {error && <p className="text-xs text-red-500 mt-4">{error}</p>}
 
-        <p className="text-sm font-medium text-slate-700 mt-6 mb-2">Temas</p>
+        <p className="text-sm font-medium text-slate-700 mt-6 mb-2">Contenido del curso</p>
 
         {temas.length === 0 && (
           <div className="bg-white border border-slate-200 rounded-xl p-4 text-sm text-slate-500">
-            Este curso todavía no tiene temas cargados.
+            Este curso todavía no tiene contenido cargado.
           </div>
         )}
 

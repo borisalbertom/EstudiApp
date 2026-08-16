@@ -61,7 +61,7 @@ export default function ExamenCurso() {
 
     const temaIds = (temasData || []).map((t) => t.id)
     if (temaIds.length === 0) {
-      setError('Este curso todavía no tiene temas cargados.')
+      setError('Este curso todavía no tiene contenido cargado.')
       setCargando(false)
       return
     }

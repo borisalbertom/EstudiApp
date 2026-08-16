@@ -236,7 +236,7 @@ export default function AdminCursos() {
                   onChange={(e) => setDueloTodoCurso(e.target.checked)}
                   className="accent-indigo-600"
                 />
-                Duelos con preguntas de todo el curso (en vez de elegir un tema)
+                Duelos con preguntas de todo el curso (en vez de elegir un contenido)
               </label>
             )}
 

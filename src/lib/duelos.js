@@ -42,7 +42,7 @@ export async function crearDuelo({ cursoId, temaId, cantidadPreguntas, dificulta
   if (errorPreguntas) {
     return {
       error: temaId
-        ? 'Este tema no tiene preguntas activas con esa dificultad.'
+        ? 'Este contenido no tiene preguntas activas con esa dificultad.'
         : 'Este curso no tiene preguntas activas con esa dificultad.',
     }
   }

@@ -118,7 +118,7 @@ export default function AdminCurso() {
       .eq('tema_id', temaId)
 
     if ((count || 0) > 0) {
-      setErrorTema('Este tema tiene preguntas — desactívalas todas antes de poder borrarlo.')
+      setErrorTema('Este contenido tiene preguntas — desactívalas todas antes de poder borrarlo.')
       return
     }
 
@@ -262,7 +262,7 @@ export default function AdminCurso() {
         <nav className="flex items-center gap-4 border-b border-slate-200 mb-6 text-sm">
           {[
             { id: 'configuracion', label: 'Configuración' },
-            { id: 'temas', label: 'Temas' },
+            { id: 'temas', label: 'Contenido del curso' },
           ].map((s) => (
             <button
               key={s.id}
@@ -306,8 +306,8 @@ export default function AdminCurso() {
             />
             <span className="block text-slate-400 mt-0.5 font-normal">
               Valor por defecto. Se usa siempre en "Simular examen" y en retos de todo el curso;
-              en práctica y retos de un tema específico, cada tema puede tener su propio valor
-              (ver abajo) y este queda como respaldo si ese tema no define uno.
+              en práctica y retos de un contenido específico, cada contenido puede tener su propio
+              valor (ver abajo) y este queda como respaldo si ese contenido no define uno.
             </span>
           </label>
 
@@ -352,7 +352,7 @@ export default function AdminCurso() {
                 onChange={(e) => actualizarConfig('duelo_todo_curso', e.target.checked)}
                 className="accent-indigo-600"
               />
-              Duelos con preguntas de todo el curso (en vez de elegir un tema)
+              Duelos con preguntas de todo el curso (en vez de elegir un contenido)
             </label>
           )}
           {curso?.permite_individual && (
@@ -385,7 +385,7 @@ export default function AdminCurso() {
         <form onSubmit={crearTema} className="bg-white border border-slate-200 rounded-xl p-4 mb-6 flex gap-2">
           <input
             type="text"
-            placeholder="Nombre del nuevo tema"
+            placeholder="Nombre del nuevo contenido"
             value={nombreTema}
             onChange={(e) => setNombreTema(e.target.value)}
             className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm"
@@ -396,7 +396,7 @@ export default function AdminCurso() {
             disabled={creandoTema}
             className="bg-indigo-600 text-white text-sm px-4 rounded-lg disabled:opacity-50"
           >
-            {creandoTema ? 'Creando...' : 'Agregar tema'}
+            {creandoTema ? 'Creando...' : 'Agregar contenido'}
           </button>
         </form>
 
@@ -454,7 +454,7 @@ export default function AdminCurso() {
               {temaEditando !== t.id && (
                 <div className="mt-2">
                   <label className="flex items-center gap-1.5 text-xs text-slate-400">
-                    Tiempo solo para este tema (s)
+                    Tiempo solo para este contenido (s)
                     <input
                       type="number"
                       min={0}
@@ -469,7 +469,7 @@ export default function AdminCurso() {
                   </label>
                   <p className="text-slate-300 text-xs mt-0.5">
                     Vacío = usa el valor del curso ({curso?.tiempo_por_pregunta ?? 0}s). Solo aplica al
-                    practicar o retar en este tema específico — no cambia el valor de arriba, ni afecta
+                    practicar o retar en este contenido específico — no cambia el valor de arriba, ni afecta
                     "Simular examen" o los retos de todo el curso.
                   </p>
                 </div>
@@ -622,7 +622,7 @@ function PreguntasTema({ temaId, preguntas, onCambio, onAlternarActiva }) {
       </form>
 
       <div className="flex flex-col gap-2">
-        {preguntas.length === 0 && <p className="text-xs text-slate-400">Este tema no tiene preguntas todavía.</p>}
+        {preguntas.length === 0 && <p className="text-xs text-slate-400">Este contenido no tiene preguntas todavía.</p>}
         {preguntas.map((p) =>
           editandoId === p.id ? (
             <PreguntaEdicion
