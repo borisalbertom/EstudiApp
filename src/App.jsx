@@ -14,6 +14,7 @@ import RankingCurso from './pages/RankingCurso'
 import AdminCursos from './pages/AdminCursos'
 import AdminCurso from './pages/AdminCurso'
 import AdminOrganizaciones from './pages/AdminOrganizaciones'
+import MiOrganizacion from './pages/MiOrganizacion'
 import LogrosPage from './pages/LogrosPage'
 import AdminLogros from './pages/AdminLogros'
 
@@ -116,6 +117,14 @@ export default function App() {
             element={
               <RutaProtegida>
                 <AdminOrganizaciones />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/admin/organizacion"
+            element={
+              <RutaProtegida>
+                <MiOrganizacion />
               </RutaProtegida>
             }
           />

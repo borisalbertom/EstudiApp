@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import NavBar from '../components/NavBar'
+import AdminSubNav from '../components/AdminSubNav'
 
 export default function AdminOrganizaciones() {
   const { perfil } = useAuth()
@@ -16,6 +16,9 @@ export default function AdminOrganizaciones() {
   const [error, setError] = useState('')
   const [orgExpandida, setOrgExpandida] = useState(null)
   const [miembrosPorOrg, setMiembrosPorOrg] = useState({})
+  const [busquedaEmail, setBusquedaEmail] = useState('')
+  const [resultadosBusqueda, setResultadosBusqueda] = useState(null)
+  const [buscando, setBuscando] = useState(false)
 
   useEffect(() => {
     cargarOrganizaciones()
@@ -51,6 +54,27 @@ export default function AdminOrganizaciones() {
       .order('creado_en', { ascending: false })
     setOrganizaciones(data || [])
     setCargando(false)
+  }
+
+  async function buscarUsuarios(e) {
+    e.preventDefault()
+    if (!busquedaEmail.trim()) return
+    setBuscando(true)
+    const { data } = await supabase
+      .from('perfiles')
+      .select('id, nombre, email, es_admin_plataforma')
+      .ilike('email', `%${busquedaEmail.trim()}%`)
+      .limit(5)
+    setResultadosBusqueda(data || [])
+    setBuscando(false)
+  }
+
+  async function alternarSuperAdmin(usuario) {
+    const nuevoValor = !usuario.es_admin_plataforma
+    await supabase.from('perfiles').update({ es_admin_plataforma: nuevoValor }).eq('id', usuario.id)
+    setResultadosBusqueda((prev) =>
+      prev.map((u) => (u.id === usuario.id ? { ...u, es_admin_plataforma: nuevoValor } : u))
+    )
   }
 
   async function crearOrganizacion(e) {
@@ -93,8 +117,52 @@ export default function AdminOrganizaciones() {
     <div className="min-h-screen bg-slate-50">
       <NavBar />
       <main className="max-w-3xl mx-auto px-4 py-6">
-        <Link to="/admin" className="text-xs text-slate-400 hover:text-indigo-600">← Volver a cursos</Link>
-        <p className="text-lg font-medium text-slate-800 mt-2 mb-4">Administrar organizaciones</p>
+        <p className="text-lg font-medium text-slate-800 mb-4">Administrar organizaciones</p>
+        <AdminSubNav />
+
+        <form onSubmit={buscarUsuarios} className="bg-white border border-slate-200 rounded-xl p-4 mb-6 flex flex-col gap-3">
+          <p className="text-sm font-medium text-slate-700">Super admins</p>
+          <p className="text-xs text-slate-500 -mt-2">
+            Un super admin puede administrar todo: cursos de cualquier empresa, organizaciones y logros.
+          </p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="Buscar usuario por email"
+              value={busquedaEmail}
+              onChange={(e) => setBusquedaEmail(e.target.value)}
+              className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm"
+            />
+            <button
+              type="submit"
+              disabled={buscando}
+              className="bg-slate-100 text-slate-700 text-sm px-4 rounded-lg disabled:opacity-50"
+            >
+              {buscando ? 'Buscando...' : 'Buscar'}
+            </button>
+          </div>
+
+          {resultadosBusqueda && resultadosBusqueda.length === 0 && (
+            <p className="text-xs text-slate-400">No se encontró ningún usuario con ese email.</p>
+          )}
+
+          {resultadosBusqueda?.map((u) => (
+            <div key={u.id} className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2">
+              <div>
+                <p className="text-sm text-slate-700">{u.nombre}</p>
+                <p className="text-xs text-slate-400">{u.email}</p>
+              </div>
+              <button
+                onClick={() => alternarSuperAdmin(u)}
+                className={`text-xs px-2 py-1 rounded-md shrink-0 ${
+                  u.es_admin_plataforma ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-600'
+                }`}
+              >
+                {u.es_admin_plataforma ? 'Super admin' : 'Hacer super admin'}
+              </button>
+            </div>
+          ))}
+        </form>
 
         <form onSubmit={crearOrganizacion} className="bg-white border border-slate-200 rounded-xl p-4 mb-6 flex flex-col gap-3">
           <p className="text-sm font-medium text-slate-700">Nueva organización</p>

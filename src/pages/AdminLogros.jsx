@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import NavBar from '../components/NavBar'
+import AdminSubNav from '../components/AdminSubNav'
 
 const TIPOS = [
   { value: 'racha', label: 'Racha de días seguidos', usaValor: true },
@@ -109,8 +109,8 @@ export default function AdminLogros() {
     <div className="min-h-screen bg-slate-50">
       <NavBar />
       <main className="max-w-3xl mx-auto px-4 py-6">
-        <Link to="/admin" className="text-xs text-slate-400 hover:text-indigo-600">← Volver a cursos</Link>
-        <p className="text-lg font-medium text-slate-800 mt-2 mb-4">Administrar logros</p>
+        <p className="text-lg font-medium text-slate-800 mb-4">Administrar logros</p>
+        <AdminSubNav />
 
         <form onSubmit={crearLogro} className="bg-white border border-slate-200 rounded-xl p-4 mb-6 flex flex-col gap-3">
           <p className="text-sm font-medium text-slate-700">Nuevo logro</p>

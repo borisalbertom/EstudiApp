@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import NavBar from '../components/NavBar'
+import AdminSubNav from '../components/AdminSubNav'
 
 export default function AdminCursos() {
   const { perfil, orgsAdmin } = useAuth()
@@ -108,19 +109,8 @@ export default function AdminCursos() {
     <div className="min-h-screen bg-slate-50">
       <NavBar />
       <main className="max-w-3xl mx-auto px-4 py-6">
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-lg font-medium text-slate-800">Administrar cursos</p>
-          {esSuperAdmin && (
-            <div className="flex gap-3">
-              <Link to="/admin/logros" className="text-xs text-indigo-600 hover:underline">
-                Logros →
-              </Link>
-              <Link to="/admin/organizaciones" className="text-xs text-indigo-600 hover:underline">
-                Organizaciones →
-              </Link>
-            </div>
-          )}
-        </div>
+        <p className="text-lg font-medium text-slate-800 mb-4">Administrar cursos</p>
+        <AdminSubNav />
 
         <button
           onClick={() => setMostrarFormulario((prev) => !prev)}
