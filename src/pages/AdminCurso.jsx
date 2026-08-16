@@ -11,7 +11,6 @@ export default function AdminCurso() {
 
   const [curso, setCurso] = useState(null)
   const [temas, setTemas] = useState([])
-  const [temaExpandido, setTemaExpandido] = useState(null)
   const [temaEditando, setTemaEditando] = useState(null)
   const [nombreEditado, setNombreEditado] = useState('')
   const [preguntasPorTema, setPreguntasPorTema] = useState({})
@@ -58,6 +57,19 @@ export default function AdminCurso() {
         agrupados[m.tema_id].push(m)
       }
       setMaterialesPorTema(agrupados)
+
+      const { data: preguntasData } = await supabase
+        .from('preguntas')
+        .select('id, tema_id, enunciado, alternativas, correcta, dificultad, activa')
+        .in('tema_id', temaIds)
+        .order('creado_en', { ascending: false })
+
+      const preguntasAgrupadas = {}
+      for (const p of preguntasData || []) {
+        if (!preguntasAgrupadas[p.tema_id]) preguntasAgrupadas[p.tema_id] = []
+        preguntasAgrupadas[p.tema_id].push(p)
+      }
+      setPreguntasPorTema(preguntasAgrupadas)
     }
   }
 
@@ -124,17 +136,6 @@ export default function AdminCurso() {
 
     await supabase.from('temas').delete().eq('id', temaId)
     cargarCurso()
-  }
-
-  async function seleccionarContenido(temaId) {
-    if (temaExpandido === temaId) {
-      setTemaExpandido(null)
-      return
-    }
-    setTemaExpandido(temaId)
-    setTemaEditando(null)
-    if (!preguntasPorTema[temaId]) await cargarPreguntas(temaId)
-    if (!materialesPorTema[temaId]) await cargarMateriales(temaId)
   }
 
   async function cargarPreguntas(temaId) {
@@ -265,6 +266,7 @@ export default function AdminCurso() {
             { id: 'configuracion', label: 'Configuración' },
             { id: 'temas', label: 'Contenido del curso' },
             { id: 'material', label: 'Material de estudio' },
+            { id: 'preguntas', label: 'Preguntas' },
           ].map((s) => (
             <button
               key={s.id}
@@ -421,15 +423,7 @@ export default function AdminCurso() {
                     <button onClick={() => setTemaEditando(null)} className="text-xs text-slate-400">Cancelar</button>
                   </div>
                 ) : (
-                  <button
-                    onClick={() => seleccionarContenido(t.id)}
-                    className="flex-1 flex items-center justify-between text-left"
-                  >
-                    <p className="font-medium text-slate-800">{t.nombre}</p>
-                    <span className="text-xs text-indigo-600">
-                      {temaExpandido === t.id ? 'Ocultar preguntas' : 'Ver preguntas'}
-                    </span>
-                  </button>
+                  <p className="font-medium text-slate-800 flex-1">{t.nombre}</p>
                 )}
 
                 {temaEditando !== t.id && (
@@ -475,15 +469,6 @@ export default function AdminCurso() {
                     "Simular examen" o los retos de todo el curso.
                   </p>
                 </div>
-              )}
-
-              {temaExpandido === t.id && (
-                <PreguntasTema
-                  temaId={t.id}
-                  preguntas={preguntasPorTema[t.id] || []}
-                  onCambio={() => cargarPreguntas(t.id)}
-                  onAlternarActiva={(p) => alternarActiva(p, t.id)}
-                />
               )}
             </div>
           ))}
@@ -533,6 +518,27 @@ export default function AdminCurso() {
                   onChange={(e) => subirMaterial(t.id, e.target.files?.[0])}
                 />
               </label>
+            </div>
+          ))}
+        </div>
+        )}
+
+        {seccion === 'preguntas' && (
+        <div className="flex flex-col gap-3">
+          {temas.length === 0 && (
+            <div className="bg-white border border-slate-200 rounded-xl p-4 text-sm text-slate-500">
+              Este curso todavía no tiene contenido cargado.
+            </div>
+          )}
+          {temas.map((t) => (
+            <div key={t.id} className="bg-white border border-slate-200 rounded-xl p-4">
+              <p className="font-medium text-slate-800">{t.nombre}</p>
+              <PreguntasTema
+                temaId={t.id}
+                preguntas={preguntasPorTema[t.id] || []}
+                onCambio={() => cargarPreguntas(t.id)}
+                onAlternarActiva={(p) => alternarActiva(p, t.id)}
+              />
             </div>
           ))}
         </div>
