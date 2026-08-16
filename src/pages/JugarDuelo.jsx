@@ -63,12 +63,13 @@ export default function JugarDuelo() {
       return
     }
 
-    const { data: cursoData } = await supabase
-      .from('cursos')
-      .select('tiempo_por_pregunta')
-      .eq('id', dueloData.curso_id)
-      .single()
-    setTiempoPorPregunta(cursoData?.tiempo_por_pregunta || 0)
+    const [{ data: cursoData }, { data: temaData }] = await Promise.all([
+      supabase.from('cursos').select('tiempo_por_pregunta').eq('id', dueloData.curso_id).single(),
+      dueloData.tema_id
+        ? supabase.from('temas').select('tiempo_por_pregunta').eq('id', dueloData.tema_id).single()
+        : Promise.resolve({ data: null }),
+    ])
+    setTiempoPorPregunta(temaData?.tiempo_por_pregunta ?? cursoData?.tiempo_por_pregunta ?? 0)
 
     const { data: preguntasData } = await supabase
       .from('duelo_preguntas')

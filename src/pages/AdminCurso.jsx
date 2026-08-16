@@ -32,7 +32,7 @@ export default function AdminCurso() {
         .select('id, nombre, permite_duelos, permite_individual, mostrar_ranking, cantidad_preguntas, porcentaje_certificacion, tiempo_por_pregunta, duelo_todo_curso')
         .eq('id', id)
         .single(),
-      supabase.from('temas').select('id, nombre, orden').eq('curso_id', id).order('orden', { ascending: true }),
+      supabase.from('temas').select('id, nombre, orden, tiempo_por_pregunta').eq('curso_id', id).order('orden', { ascending: true }),
     ])
     setCurso(cursoData)
     setTemas(temasData || [])
@@ -63,6 +63,11 @@ export default function AdminCurso() {
     await supabase.from('temas').update({ nombre: nombreEditado.trim() }).eq('id', temaId)
     setTemaEditando(null)
     cargarCurso()
+  }
+
+  async function actualizarTiempoTema(temaId, valor) {
+    setTemas((prev) => prev.map((t) => (t.id === temaId ? { ...t, tiempo_por_pregunta: valor } : t)))
+    await supabase.from('temas').update({ tiempo_por_pregunta: valor }).eq('id', temaId)
   }
 
   async function borrarTema(temaId) {
@@ -290,6 +295,24 @@ export default function AdminCurso() {
                   </div>
                 )}
               </div>
+
+              {temaEditando !== t.id && (
+                <label className="flex items-center gap-1.5 text-xs text-slate-400 mt-2">
+                  Tiempo por pregunta (s)
+                  <input
+                    type="number"
+                    min={0}
+                    max={600}
+                    placeholder={`curso: ${curso?.tiempo_por_pregunta ?? 0}`}
+                    value={t.tiempo_por_pregunta ?? ''}
+                    onChange={(e) =>
+                      actualizarTiempoTema(t.id, e.target.value === '' ? null : Number(e.target.value))
+                    }
+                    className="w-24 border border-slate-200 rounded-md px-2 py-0.5 text-slate-600"
+                  />
+                  <span className="text-slate-300">vacío = usa el del curso</span>
+                </label>
+              )}
 
               {temaExpandido === t.id && (
                 <PreguntasTema

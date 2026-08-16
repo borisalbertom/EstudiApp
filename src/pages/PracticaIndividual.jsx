@@ -23,21 +23,22 @@ export default function PracticaIndividual() {
   const [error, setError] = useState('')
   const [tiempoRestante, setTiempoRestante] = useState(null)
 
+  const tiempoPorPreguntaEfectivo = tema?.tiempo_por_pregunta ?? curso?.tiempo_por_pregunta ?? 0
+
   useEffect(() => {
     cargarPreguntas()
   }, [temaId])
 
   useEffect(() => {
-    const tiempoPorPregunta = curso?.tiempo_por_pregunta || 0
-    if (!tiempoPorPregunta || seleccionada !== null || cargando || terminado) {
+    if (!tiempoPorPreguntaEfectivo || seleccionada !== null || cargando || terminado) {
       return
     }
-    setTiempoRestante(tiempoPorPregunta)
+    setTiempoRestante(tiempoPorPreguntaEfectivo)
     const interval = setInterval(() => {
       setTiempoRestante((prev) => (prev > 0 ? prev - 1 : 0))
     }, 1000)
     return () => clearInterval(interval)
-  }, [indice, curso, cargando, terminado])
+  }, [indice, tiempoPorPreguntaEfectivo, cargando, terminado])
 
   useEffect(() => {
     if (tiempoRestante === 0 && seleccionada === null) {
@@ -51,7 +52,7 @@ export default function PracticaIndividual() {
 
     const [{ data: cursoData }, { data: temaData }] = await Promise.all([
       supabase.from('cursos').select('id, nombre, porcentaje_certificacion, cantidad_preguntas, tiempo_por_pregunta').eq('id', cursoId).single(),
-      supabase.from('temas').select('id, nombre').eq('id', temaId).single(),
+      supabase.from('temas').select('id, nombre, tiempo_por_pregunta').eq('id', temaId).single(),
     ])
     setCurso(cursoData)
     setTema(temaData)
@@ -206,7 +207,7 @@ export default function PracticaIndividual() {
           </p>
           <div className="flex items-center gap-3">
             <p className="text-sm font-medium text-indigo-600">🎯 {correctas}/{preguntas.length} aciertos</p>
-            {curso?.tiempo_por_pregunta > 0 && seleccionada === null && (
+            {tiempoPorPreguntaEfectivo > 0 && seleccionada === null && (
               <p className={`text-sm font-medium ${tiempoRestante <= 5 ? 'text-red-500' : 'text-slate-500'}`}>
                 ⏱ {tiempoRestante}s
               </p>
