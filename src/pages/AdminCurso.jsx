@@ -126,12 +126,13 @@ export default function AdminCurso() {
     cargarCurso()
   }
 
-  async function alternarTema(temaId) {
+  async function seleccionarContenido(temaId) {
     if (temaExpandido === temaId) {
       setTemaExpandido(null)
       return
     }
     setTemaExpandido(temaId)
+    setTemaEditando(null)
     if (!preguntasPorTema[temaId]) await cargarPreguntas(temaId)
     if (!materialesPorTema[temaId]) await cargarMateriales(temaId)
   }
@@ -402,8 +403,25 @@ export default function AdminCurso() {
 
         {errorTema && <p className="text-xs text-red-500 mb-3">{errorTema}</p>}
 
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2 mb-3">
           {temas.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => seleccionarContenido(t.id)}
+              className={`text-left rounded-xl border p-4 ${
+                temaExpandido === t.id
+                  ? 'bg-indigo-50 border-indigo-300'
+                  : 'bg-white border-slate-200 hover:border-indigo-300'
+              }`}
+            >
+              <span className="font-medium text-slate-800">{t.nombre}</span>
+            </button>
+          ))}
+        </div>
+
+        {temas
+          .filter((t) => t.id === temaExpandido)
+          .map((t) => (
             <div key={t.id} className="bg-white border border-slate-200 rounded-xl p-4">
               <div className="flex items-center justify-between gap-2">
                 {temaEditando === t.id ? (
@@ -419,15 +437,7 @@ export default function AdminCurso() {
                     <button onClick={() => setTemaEditando(null)} className="text-xs text-slate-400">Cancelar</button>
                   </div>
                 ) : (
-                  <button
-                    onClick={() => alternarTema(t.id)}
-                    className="flex-1 flex items-center justify-between text-left"
-                  >
-                    <p className="font-medium text-slate-800">{t.nombre}</p>
-                    <span className="text-xs text-indigo-600">
-                      {temaExpandido === t.id ? 'Ocultar preguntas' : 'Ver preguntas'}
-                    </span>
-                  </button>
+                  <p className="font-medium text-slate-800">{t.nombre}</p>
                 )}
 
                 {temaEditando !== t.id && (
@@ -511,17 +521,14 @@ export default function AdminCurso() {
                 </label>
               </div>
 
-              {temaExpandido === t.id && (
-                <PreguntasTema
-                  temaId={t.id}
-                  preguntas={preguntasPorTema[t.id] || []}
-                  onCambio={() => cargarPreguntas(t.id)}
-                  onAlternarActiva={(p) => alternarActiva(p, t.id)}
-                />
-              )}
+              <PreguntasTema
+                temaId={t.id}
+                preguntas={preguntasPorTema[t.id] || []}
+                onCambio={() => cargarPreguntas(t.id)}
+                onAlternarActiva={(p) => alternarActiva(p, t.id)}
+              />
             </div>
           ))}
-        </div>
         </>
         )}
       </main>
