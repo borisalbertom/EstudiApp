@@ -264,6 +264,7 @@ export default function AdminCurso() {
           {[
             { id: 'configuracion', label: 'Configuración' },
             { id: 'temas', label: 'Contenido del curso' },
+            { id: 'material', label: 'Material de estudio' },
           ].map((s) => (
             <button
               key={s.id}
@@ -403,25 +404,8 @@ export default function AdminCurso() {
 
         {errorTema && <p className="text-xs text-red-500 mb-3">{errorTema}</p>}
 
-        <div className="flex flex-col gap-2 mb-3">
+        <div className="flex flex-col gap-3">
           {temas.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => seleccionarContenido(t.id)}
-              className={`text-left rounded-xl border p-4 ${
-                temaExpandido === t.id
-                  ? 'bg-indigo-50 border-indigo-300'
-                  : 'bg-white border-slate-200 hover:border-indigo-300'
-              }`}
-            >
-              <span className="font-medium text-slate-800">{t.nombre}</span>
-            </button>
-          ))}
-        </div>
-
-        {temas
-          .filter((t) => t.id === temaExpandido)
-          .map((t) => (
             <div key={t.id} className="bg-white border border-slate-200 rounded-xl p-4">
               <div className="flex items-center justify-between gap-2">
                 {temaEditando === t.id ? (
@@ -437,7 +421,15 @@ export default function AdminCurso() {
                     <button onClick={() => setTemaEditando(null)} className="text-xs text-slate-400">Cancelar</button>
                   </div>
                 ) : (
-                  <p className="font-medium text-slate-800">{t.nombre}</p>
+                  <button
+                    onClick={() => seleccionarContenido(t.id)}
+                    className="flex-1 flex items-center justify-between text-left"
+                  >
+                    <p className="font-medium text-slate-800">{t.nombre}</p>
+                    <span className="text-xs text-indigo-600">
+                      {temaExpandido === t.id ? 'Ocultar preguntas' : 'Ver preguntas'}
+                    </span>
+                  </button>
                 )}
 
                 {temaEditando !== t.id && (
@@ -485,51 +477,65 @@ export default function AdminCurso() {
                 </div>
               )}
 
-              <div className="mt-3 border-t border-slate-100 pt-3">
-                <p className="text-xs font-medium text-slate-500 mb-2">📄 Material de estudio</p>
-                <div className="flex flex-col gap-2 mb-2">
-                  {(materialesPorTema[t.id] || []).length === 0 && (
-                    <p className="text-xs text-slate-400">Todavía no hay material subido.</p>
-                  )}
-                  {(materialesPorTema[t.id] || []).map((m) => (
-                    <div key={m.id} className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2">
-                      <a
-                        href={m.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-sm text-indigo-600 hover:underline truncate"
-                      >
-                        {m.nombre_archivo}
-                      </a>
-                      <button
-                        onClick={() => borrarMaterial(m.id, t.id)}
-                        className="text-xs text-slate-400 hover:text-red-500 shrink-0 ml-2"
-                      >
-                        Borrar
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <label className="text-xs bg-slate-100 text-slate-600 px-3 py-1.5 rounded-md cursor-pointer inline-block">
-                  {subiendoMaterial ? 'Subiendo...' : '+ Subir archivo'}
-                  <input
-                    type="file"
-                    className="hidden"
-                    disabled={subiendoMaterial}
-                    onChange={(e) => subirMaterial(t.id, e.target.files?.[0])}
-                  />
-                </label>
-              </div>
-
-              <PreguntasTema
-                temaId={t.id}
-                preguntas={preguntasPorTema[t.id] || []}
-                onCambio={() => cargarPreguntas(t.id)}
-                onAlternarActiva={(p) => alternarActiva(p, t.id)}
-              />
+              {temaExpandido === t.id && (
+                <PreguntasTema
+                  temaId={t.id}
+                  preguntas={preguntasPorTema[t.id] || []}
+                  onCambio={() => cargarPreguntas(t.id)}
+                  onAlternarActiva={(p) => alternarActiva(p, t.id)}
+                />
+              )}
             </div>
           ))}
+        </div>
         </>
+        )}
+
+        {seccion === 'material' && (
+        <div className="flex flex-col gap-3">
+          {temas.length === 0 && (
+            <div className="bg-white border border-slate-200 rounded-xl p-4 text-sm text-slate-500">
+              Este curso todavía no tiene contenido cargado.
+            </div>
+          )}
+          {temas.map((t) => (
+            <div key={t.id} className="bg-white border border-slate-200 rounded-xl p-4">
+              <p className="font-medium text-slate-800 mb-2">{t.nombre}</p>
+              <div className="flex flex-col gap-2 mb-2">
+                {(materialesPorTema[t.id] || []).length === 0 && (
+                  <p className="text-xs text-slate-400">Todavía no hay material subido.</p>
+                )}
+                {(materialesPorTema[t.id] || []).map((m) => (
+                  <div key={m.id} className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2">
+                    <a
+                      href={m.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sm text-indigo-600 hover:underline truncate"
+                    >
+                      {m.nombre_archivo}
+                    </a>
+                    <button
+                      onClick={() => borrarMaterial(m.id, t.id)}
+                      className="text-xs text-slate-400 hover:text-red-500 shrink-0 ml-2"
+                    >
+                      Borrar
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <label className="text-xs bg-slate-100 text-slate-600 px-3 py-1.5 rounded-md cursor-pointer inline-block">
+                {subiendoMaterial ? 'Subiendo...' : '+ Subir archivo'}
+                <input
+                  type="file"
+                  className="hidden"
+                  disabled={subiendoMaterial}
+                  onChange={(e) => subirMaterial(t.id, e.target.files?.[0])}
+                />
+              </label>
+            </div>
+          ))}
+        </div>
         )}
       </main>
     </div>
