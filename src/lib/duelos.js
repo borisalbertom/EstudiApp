@@ -2,30 +2,43 @@ import { supabase } from './supabase'
 import { elegirPreguntas } from './preguntas'
 
 export async function crearDuelo({ cursoId, temaId, cantidadPreguntas, dificultad, jugador1Id, jugador2Id }) {
-  const { data: existentes } = await supabase
+  let consultaExistentes = supabase
     .from('duelos')
     .select('id')
     .eq('curso_id', cursoId)
-    .eq('tema_id', temaId)
     .neq('estado', 'finalizado')
     .or(
       `and(jugador_1.eq.${jugador1Id},jugador_2.eq.${jugador2Id}),and(jugador_1.eq.${jugador2Id},jugador_2.eq.${jugador1Id})`
     )
     .limit(1)
+  consultaExistentes = temaId
+    ? consultaExistentes.eq('tema_id', temaId)
+    : consultaExistentes.is('tema_id', null)
+  const { data: existentes } = await consultaExistentes
 
   if (existentes && existentes.length > 0) {
     return { dueloId: existentes[0].id, yaExistia: true }
   }
 
+  let temaIds = [temaId]
+  if (!temaId) {
+    const { data: temasCurso } = await supabase.from('temas').select('id').eq('curso_id', cursoId)
+    temaIds = (temasCurso || []).map((t) => t.id)
+  }
+
   const { ids: elegidas, error: errorPreguntas } = await elegirPreguntas({
-    temaIds: [temaId],
+    temaIds,
     dificultad,
     cantidad: cantidadPreguntas,
     usuarioId: jugador1Id,
   })
 
   if (errorPreguntas) {
-    return { error: 'Este tema no tiene preguntas activas con esa dificultad.' }
+    return {
+      error: temaId
+        ? 'Este tema no tiene preguntas activas con esa dificultad.'
+        : 'Este curso no tiene preguntas activas con esa dificultad.',
+    }
   }
 
   const { data: duelo, error: errorDuelo } = await supabase

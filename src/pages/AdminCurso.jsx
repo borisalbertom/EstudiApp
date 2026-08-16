@@ -29,7 +29,7 @@ export default function AdminCurso() {
     const [{ data: cursoData }, { data: temasData }] = await Promise.all([
       supabase
         .from('cursos')
-        .select('id, nombre, permite_duelos, permite_individual, mostrar_ranking, cantidad_preguntas, porcentaje_certificacion, tiempo_por_pregunta')
+        .select('id, nombre, permite_duelos, permite_individual, mostrar_ranking, cantidad_preguntas, porcentaje_certificacion, tiempo_por_pregunta, duelo_todo_curso')
         .eq('id', id)
         .single(),
       supabase.from('temas').select('id, nombre, orden').eq('curso_id', id).order('orden', { ascending: true }),
@@ -187,6 +187,17 @@ export default function AdminCurso() {
               Certificación (evaluación individual)
             </label>
           </div>
+          {!curso?.permite_individual && (
+            <label className="flex items-center gap-1.5 text-sm text-slate-600 ml-5">
+              <input
+                type="checkbox"
+                checked={curso?.duelo_todo_curso || false}
+                onChange={(e) => actualizarConfig('duelo_todo_curso', e.target.checked)}
+                className="accent-indigo-600"
+              />
+              Duelos con preguntas de todo el curso (en vez de elegir un tema)
+            </label>
+          )}
           {curso?.permite_individual && (
             <label className="text-xs text-slate-500 ml-5">
               % para aprobar en el modo individual

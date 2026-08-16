@@ -14,6 +14,7 @@ export default function AdminCursos() {
   const [visibilidad, setVisibilidad] = useState('publico')
   const [organizacionId, setOrganizacionId] = useState('')
   const [tipoCurso, setTipoCurso] = useState('retos') // 'retos' | 'certificacion'
+  const [dueloTodoCurso, setDueloTodoCurso] = useState(false)
   const [mostrarRanking, setMostrarRanking] = useState(true)
   const [cantidadPreguntas, setCantidadPreguntas] = useState(5)
   const [porcentajeCertificacion, setPorcentajeCertificacion] = useState(70)
@@ -54,6 +55,7 @@ export default function AdminCursos() {
       creado_por: perfil.id,
       permite_duelos: tipoCurso === 'retos',
       permite_individual: tipoCurso === 'certificacion',
+      duelo_todo_curso: tipoCurso === 'retos' ? dueloTodoCurso : false,
       mostrar_ranking: mostrarRanking,
       cantidad_preguntas: cantidadPreguntas,
       porcentaje_certificacion: porcentajeCertificacion,
@@ -67,6 +69,7 @@ export default function AdminCursos() {
       setVisibilidad('publico')
       setOrganizacionId('')
       setTipoCurso('retos')
+      setDueloTodoCurso(false)
       setMostrarRanking(true)
       setCantidadPreguntas(5)
       setPorcentajeCertificacion(70)
@@ -195,6 +198,18 @@ export default function AdminCursos() {
                 Certificación (evaluación individual)
               </label>
             </div>
+
+            {tipoCurso === 'retos' && (
+              <label className="flex items-center gap-1.5 text-xs text-slate-500 ml-5">
+                <input
+                  type="checkbox"
+                  checked={dueloTodoCurso}
+                  onChange={(e) => setDueloTodoCurso(e.target.checked)}
+                  className="accent-indigo-600"
+                />
+                Duelos con preguntas de todo el curso (en vez de elegir un tema)
+              </label>
+            )}
 
             {tipoCurso === 'certificacion' && (
               <label className="text-xs text-slate-500 ml-5">
