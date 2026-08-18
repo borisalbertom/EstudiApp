@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function Login() {
-  const [modo, setModo] = useState('ingresar') // 'ingresar' | 'registrar'
+  const [searchParams] = useSearchParams()
+  const [modo, setModo] = useState(searchParams.get('modo') === 'registrar' ? 'registrar' : 'ingresar')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [mostrarPassword, setMostrarPassword] = useState(false)
@@ -43,7 +44,8 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 px-4">
+      <Link to="/" className="w-full max-w-sm text-xs text-slate-400 hover:text-indigo-600 mb-2">← Volver</Link>
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
         <h1 className="text-xl font-semibold text-slate-800 mb-1">🎯 EstudiApp</h1>
         <p className="text-sm text-slate-500 mb-6">

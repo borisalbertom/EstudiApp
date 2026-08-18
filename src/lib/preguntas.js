@@ -11,6 +11,17 @@ function mezclar(arr) {
   return copia
 }
 
+// Mezcla el orden de las alternativas de una pregunta y devuelve el nuevo
+// índice de la correcta, para que no se pueda memorizar por posición.
+export function mezclarAlternativas(pregunta) {
+  const orden = mezclar(pregunta.alternativas.map((_, i) => i))
+  return {
+    ...pregunta,
+    alternativas: orden.map((i) => pregunta.alternativas[i]),
+    correcta: orden.indexOf(pregunta.correcta),
+  }
+}
+
 // Elige preguntas activas de uno o varios temas, evitando (cuando se
 // puede) las que el usuario ya respondió bien en los últimos días.
 // Si hay más de un tema, reparte parejo entre ellos en vez de tomar

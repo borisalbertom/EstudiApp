@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useSearchParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { elegirPreguntas } from '../lib/preguntas'
+import { elegirPreguntas, mezclarAlternativas } from '../lib/preguntas'
 import NavBar from '../components/NavBar'
 
 export default function PracticaIndividual() {
@@ -50,12 +50,26 @@ export default function PracticaIndividual() {
     setCargando(true)
     setError('')
 
-    const [{ data: cursoData }, { data: temaData }] = await Promise.all([
-      supabase.from('cursos').select('id, nombre, porcentaje_certificacion, cantidad_preguntas, tiempo_por_pregunta, fecha_fin').eq('id', cursoId).single(),
-      supabase.from('temas').select('id, nombre, tiempo_por_pregunta').eq('id', temaId).single(),
-    ])
+    const { data: cursoData } = await supabase
+      .from('cursos')
+      .select('id, nombre, porcentaje_certificacion, cantidad_preguntas, tiempo_por_pregunta, fecha_fin')
+      .eq('id', cursoId)
+      .single()
     setCurso(cursoData)
-    setTema(temaData)
+
+    let temaIds = []
+    if (temaId) {
+      const { data: temaData } = await supabase
+        .from('temas')
+        .select('id, nombre, tiempo_por_pregunta')
+        .eq('id', temaId)
+        .single()
+      setTema(temaData)
+      temaIds = [temaId]
+    } else {
+      const { data: temasData } = await supabase.from('temas').select('id').eq('curso_id', cursoId)
+      temaIds = (temasData || []).map((t) => t.id)
+    }
 
     const hoy = new Date().toISOString().slice(0, 10)
     if (cursoData?.fecha_fin && cursoData.fecha_fin < hoy) {
@@ -64,9 +78,15 @@ export default function PracticaIndividual() {
       return
     }
 
+    if (temaIds.length === 0) {
+      setError('Este curso todavía no tiene contenido cargado.')
+      setCargando(false)
+      return
+    }
+
     const cantidadPreguntas = cursoData?.cantidad_preguntas || 5
     const { ids: idsElegidos, error: errorSeleccion } = await elegirPreguntas({
-      temaIds: [temaId],
+      temaIds,
       dificultad,
       cantidad: cantidadPreguntas,
       usuarioId: perfil.id,
@@ -84,7 +104,7 @@ export default function PracticaIndividual() {
       .in('id', idsElegidos)
 
     const porId = Object.fromEntries((preguntasElegidas || []).map((p) => [p.id, p]))
-    setPreguntas(idsElegidos.map((id) => porId[id]))
+    setPreguntas(idsElegidos.map((id) => mezclarAlternativas(porId[id])))
     setCargando(false)
   }
 
@@ -125,7 +145,7 @@ export default function PracticaIndividual() {
     await supabase.from('intentos_individuales').insert({
       usuario_id: perfil.id,
       curso_id: cursoId,
-      tema_id: temaId,
+      tema_id: temaId || null,
       cantidad_preguntas: preguntas.length,
       correctas: totalCorrectas,
     })
@@ -161,7 +181,7 @@ export default function PracticaIndividual() {
       <div className="min-h-screen bg-slate-50">
         <NavBar />
         <main className="max-w-3xl mx-auto px-4 py-6">
-          <p className="text-sm font-medium text-slate-700 mb-4">Resultado — {tema?.nombre}</p>
+          <p className="text-sm font-medium text-slate-700 mb-4">Resultado — {(temaId ? tema?.nombre : 'Todos los contenidos')}</p>
           <div className="bg-white border border-slate-200 rounded-xl p-6 text-center">
             <p className="text-3xl font-semibold text-slate-800">{correctas}/{preguntas.length}</p>
             <p className="text-sm text-slate-500 mt-1">{porcentaje}% de respuestas correctas</p>
@@ -210,7 +230,7 @@ export default function PracticaIndividual() {
       <main className="max-w-3xl mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-1">
           <p className="text-xs text-slate-400">
-            {tema?.nombre} · Pregunta {indice + 1} de {preguntas.length}
+            {(temaId ? tema?.nombre : 'Todos los contenidos')} · Pregunta {indice + 1} de {preguntas.length}
           </p>
           <div className="flex items-center gap-3">
             <p className="text-sm font-medium text-indigo-600">🎯 {correctas}/{preguntas.length} aciertos</p>

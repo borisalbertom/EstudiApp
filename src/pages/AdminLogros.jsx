@@ -11,6 +11,8 @@ const TIPOS = [
   { value: 'duelo_perfecto', label: 'Duelo con puntaje perfecto', usaValor: false },
   { value: 'primer_duelo', label: 'Jugar el primer duelo', usaValor: false },
   { value: 'aprobacion_individual', label: 'Aprobar el modo individual (requiere curso)', usaValor: false },
+  { value: 'material_completo', label: 'Revisar todo el material de estudio', usaValor: false },
+  { value: 'primera_practica', label: 'Completar la primera práctica individual', usaValor: false },
 ]
 
 export default function AdminLogros() {

@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { crearDuelo } from '../lib/duelos'
+import { iconoMaterial } from '../lib/materiales'
 import NavBar from '../components/NavBar'
 
 export default function CursoDetalle() {
@@ -22,6 +23,8 @@ export default function CursoDetalle() {
   const [solicitudPlazo, setSolicitudPlazo] = useState(null)
   const [enviandoSolicitud, setEnviandoSolicitud] = useState(false)
   const [materialesPorTema, setMaterialesPorTema] = useState({})
+  const [materialesVistos, setMaterialesVistos] = useState(new Set())
+  const [totalMateriales, setTotalMateriales] = useState(0)
 
   function dificultadDe(temaId) {
     return dificultadPorTema[temaId] || 'todas'
@@ -37,7 +40,7 @@ export default function CursoDetalle() {
     const [{ data: cursoData }, { data: temasData }] = await Promise.all([
       supabase
         .from('cursos')
-        .select('id, nombre, descripcion, permite_duelos, permite_individual, mostrar_ranking, cantidad_preguntas, duelo_todo_curso, fecha_fin')
+        .select('id, nombre, descripcion, permite_duelos, permite_individual, permite_practica_individual, mostrar_ranking, cantidad_preguntas, tiempo_por_pregunta, fecha_fin, fecha_fin_duelos')
         .eq('id', id)
         .single(),
       supabase.from('temas').select('id, nombre, orden').eq('curso_id', id).order('orden', { ascending: true }),
@@ -47,11 +50,12 @@ export default function CursoDetalle() {
     setCargando(false)
 
     const temaIds = (temasData || []).map((t) => t.id)
-    if (temaIds.length > 0) {
+    if (temaIds.length > 0 && cursoData?.permite_individual) {
       const { data: materialesData } = await supabase
         .from('materiales_tema')
         .select('id, tema_id, nombre_archivo, url')
         .in('tema_id', temaIds)
+        .order('creado_en', { ascending: true })
 
       const agrupados = {}
       for (const m of materialesData || []) {
@@ -59,6 +63,16 @@ export default function CursoDetalle() {
         agrupados[m.tema_id].push(m)
       }
       setMaterialesPorTema(agrupados)
+      setTotalMateriales((materialesData || []).length)
+
+      if ((materialesData || []).length > 0) {
+        const { data: vistosData } = await supabase
+          .from('materiales_vistos')
+          .select('material_id')
+          .eq('usuario_id', perfil.id)
+          .in('material_id', materialesData.map((m) => m.id))
+        setMaterialesVistos(new Set((vistosData || []).map((v) => v.material_id)))
+      }
     }
 
     const hoy = new Date().toISOString().slice(0, 10)
@@ -72,6 +86,14 @@ export default function CursoDetalle() {
         .maybeSingle()
       setSolicitudPlazo(solicitudData)
     }
+  }
+
+  async function marcarVisto(materialId) {
+    if (materialesVistos.has(materialId)) return
+    setMaterialesVistos((prev) => new Set(prev).add(materialId))
+    await supabase
+      .from('materiales_vistos')
+      .upsert({ material_id: materialId, usuario_id: perfil.id }, { onConflict: 'material_id,usuario_id' })
   }
 
   async function solicitarPlazo() {
@@ -142,12 +164,30 @@ export default function CursoDetalle() {
 
   const hoy = new Date().toISOString().slice(0, 10)
   const vencido = curso.fecha_fin && curso.fecha_fin < hoy
+  const duelosDisponibles = curso.permite_duelos && !(curso.fecha_fin_duelos && curso.fecha_fin_duelos < hoy)
+  const materialCompleto = totalMateriales === 0 || materialesVistos.size >= totalMateriales
+
+  const materialesFlat = temas.flatMap((t) => materialesPorTema[t.id] || [])
+  function numeroGlobal(materialId) {
+    return materialesFlat.findIndex((m) => m.id === materialId) + 1
+  }
+  function materialDesbloqueado(materialId) {
+    const idx = materialesFlat.findIndex((m) => m.id === materialId)
+    if (idx <= 0) return true
+    return materialesFlat.slice(0, idx).every((m) => materialesVistos.has(m.id))
+  }
+  function tipoArchivo(nombre) {
+    return (nombre.split('.').pop() || '').toUpperCase()
+  }
+
+  const rutaListado = curso.permite_individual ? '/cursos' : curso.permite_practica_individual ? '/pruebas' : '/trivias'
+  const nombreListado = curso.permite_individual ? 'cursos' : curso.permite_practica_individual ? 'pruebas' : 'trivias'
 
   return (
     <div className="min-h-screen bg-slate-50">
       <NavBar />
       <main className="max-w-3xl mx-auto px-4 py-6">
-        <Link to="/" className="text-xs text-slate-400 hover:text-indigo-600">← Volver a cursos</Link>
+        <Link to={rutaListado} className="text-xs text-slate-400 hover:text-indigo-600">← Volver a {nombreListado}</Link>
         <div className="flex items-center justify-between mt-2">
           <h1 className="text-xl font-semibold text-slate-800">{curso.nombre}</h1>
           {curso.mostrar_ranking && (
@@ -179,20 +219,40 @@ export default function CursoDetalle() {
           </div>
         )}
 
-        {!vencido && curso.permite_individual && temas.length > 1 && (
-          <Link
-            to={`/curso/${id}/examen`}
-            className="mt-4 flex items-center justify-between bg-indigo-600 text-white rounded-xl px-4 py-3 hover:bg-indigo-700"
-          >
-            <span className="text-sm font-medium">📝 Simular examen completo</span>
-            <span className="text-xs">Todo el contenido →</span>
-          </Link>
-        )}
+        <div className="mt-4 bg-white border border-slate-200 rounded-xl p-4">
+          <p className="text-sm font-medium text-slate-700 mb-2">Detalles del curso</p>
+          <div className="grid grid-cols-2 gap-3 text-xs">
+            <div>
+              <p className="text-slate-400">Tipo</p>
+              <p className="text-slate-700 font-medium mt-0.5">
+                {curso.permite_individual
+                  ? '📝 Certificación'
+                  : curso.permite_practica_individual
+                    ? '🎯 Prueba'
+                    : '🎉 Trivia'}
+              </p>
+            </div>
+            <div>
+              <p className="text-slate-400">Preguntas por intento</p>
+              <p className="text-slate-700 font-medium mt-0.5">{curso.cantidad_preguntas}</p>
+            </div>
+            {curso.tiempo_por_pregunta > 0 && (
+              <div>
+                <p className="text-slate-400">Tiempo por pregunta</p>
+                <p className="text-slate-700 font-medium mt-0.5">{curso.tiempo_por_pregunta}s</p>
+              </div>
+            )}
+            <div>
+              <p className="text-slate-400">Fecha límite</p>
+              <p className="text-slate-700 font-medium mt-0.5">{curso.fecha_fin || 'Sin límite'}</p>
+            </div>
+          </div>
+        </div>
 
-        {!vencido && curso.permite_duelos && curso.duelo_todo_curso && (
+        {!vencido && temas.length > 1 && (curso.permite_practica_individual || duelosDisponibles) && (
           <div className="mt-4 bg-white border border-indigo-200 rounded-xl p-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <p className="text-sm font-medium text-slate-800">🎯 Retar a un amigo (todo el curso)</p>
+              <p className="text-sm font-medium text-slate-800">🎯 Todos los contenidos</p>
               <div className="flex items-center gap-2 shrink-0 flex-wrap">
                 <select
                   value={dificultadCurso}
@@ -204,12 +264,22 @@ export default function CursoDetalle() {
                   <option value="media">Media</option>
                   <option value="dificil">Difícil</option>
                 </select>
-                <button
-                  onClick={() => setTemaRetando(temaRetando === 'curso' ? null : 'curso')}
-                  className="text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded-md"
-                >
-                  Retar a un amigo
-                </button>
+                {curso.permite_practica_individual && (
+                  <Link
+                    to={`/curso/${id}/individual?dificultad=${dificultadCurso}`}
+                    className="text-xs bg-slate-100 text-slate-600 px-3 py-1 rounded-md"
+                  >
+                    Practicar solo
+                  </Link>
+                )}
+                {duelosDisponibles && (
+                  <button
+                    onClick={() => setTemaRetando(temaRetando === 'curso' ? null : 'curso')}
+                    className="text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded-md"
+                  >
+                    Retar a un amigo
+                  </button>
+                )}
               </div>
             </div>
 
@@ -240,9 +310,22 @@ export default function CursoDetalle() {
           </div>
         )}
 
+        {!vencido && curso.permite_duelos && curso.fecha_fin_duelos && curso.fecha_fin_duelos < hoy && (
+          <p className="mt-4 text-xs text-slate-400">
+            🎯 El periodo de desafíos de este curso terminó el {curso.fecha_fin_duelos}.
+          </p>
+        )}
+
         {error && <p className="text-xs text-red-500 mt-4">{error}</p>}
 
-        <p className="text-sm font-medium text-slate-700 mt-6 mb-2">Contenido del curso</p>
+        <p className="text-sm font-medium text-slate-700 mt-6 mb-1">
+          {curso.permite_individual ? 'Temario del curso' : 'Contenidos'}
+        </p>
+        <p className="text-xs text-slate-500 mb-2">
+          {temas.length} contenido{temas.length !== 1 ? 's' : ''}
+          {totalMateriales > 0 &&
+            ` · ${totalMateriales} material${totalMateriales !== 1 ? 'es' : ''} de estudio · ${materialesVistos.size}/${totalMateriales} revisados`}
+        </p>
 
         {temas.length === 0 && (
           <div className="bg-white border border-slate-200 rounded-xl p-4 text-sm text-slate-500">
@@ -255,54 +338,86 @@ export default function CursoDetalle() {
             <div key={t.id} className="bg-white border border-slate-200 rounded-xl p-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <p className="font-medium text-slate-800">{t.nombre}</p>
-                <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                  <select
-                    value={dificultadDe(t.id)}
-                    onChange={(e) => setDificultadPorTema((prev) => ({ ...prev, [t.id]: e.target.value }))}
-                    className="text-xs border border-slate-200 rounded-md px-1.5 py-1 text-slate-600"
-                  >
-                    <option value="todas">Todas</option>
-                    <option value="facil">Fácil</option>
-                    <option value="media">Media</option>
-                    <option value="dificil">Difícil</option>
-                  </select>
-                  {!vencido && curso.permite_individual && (
-                    <Link
-                      to={`/curso/${id}/tema/${t.id}/individual?dificultad=${dificultadDe(t.id)}`}
-                      className="text-xs bg-slate-100 text-slate-600 px-3 py-1 rounded-md"
+                {!vencido && (curso.permite_practica_individual || duelosDisponibles) && (
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                    <select
+                      value={dificultadDe(t.id)}
+                      onChange={(e) => setDificultadPorTema((prev) => ({ ...prev, [t.id]: e.target.value }))}
+                      className="text-xs border border-slate-200 rounded-md px-1.5 py-1 text-slate-600"
                     >
-                      Practicar solo
-                    </Link>
-                  )}
-                  {!vencido && curso.permite_duelos && !curso.duelo_todo_curso && (
-                    <button
-                      onClick={() => setTemaRetando(temaRetando === t.id ? null : t.id)}
-                      className="text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded-md"
-                    >
-                      Retar a un amigo
-                    </button>
-                  )}
-                </div>
+                      <option value="todas">Todas</option>
+                      <option value="facil">Fácil</option>
+                      <option value="media">Media</option>
+                      <option value="dificil">Difícil</option>
+                    </select>
+                    {curso.permite_practica_individual && (
+                      <Link
+                        to={`/curso/${id}/tema/${t.id}/individual?dificultad=${dificultadDe(t.id)}`}
+                        className="text-xs bg-slate-100 text-slate-600 px-3 py-1 rounded-md"
+                      >
+                        Practicar solo
+                      </Link>
+                    )}
+                    {duelosDisponibles && (
+                      <button
+                        onClick={() => setTemaRetando(temaRetando === t.id ? null : t.id)}
+                        className="text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded-md"
+                      >
+                        Retar a un amigo
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               {materialesPorTema[t.id]?.length > 0 && (
                 <div className="mt-3 border-t border-slate-100 pt-3 flex flex-col gap-1">
-                  <p className="text-xs font-medium text-slate-500">📄 Material de estudio</p>
-                  {materialesPorTema[t.id].map((m) => (
-                    <a
-                      key={m.id}
-                      href={m.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs text-indigo-600 hover:underline"
-                    >
-                      {m.nombre_archivo}
-                    </a>
-                  ))}
+                  <p className="text-xs font-medium text-slate-500 mb-1">Material de estudio</p>
+                  {materialesPorTema[t.id].map((m) => {
+                    const numero = numeroGlobal(m.id)
+                    const visto = materialesVistos.has(m.id)
+                    const desbloqueado = materialDesbloqueado(m.id)
+
+                    if (!desbloqueado) {
+                      return (
+                        <div key={m.id} className="flex items-center gap-2 text-xs text-slate-300 py-1">
+                          <span>🔒</span>
+                          <span>{numero}. {m.nombre_archivo}</span>
+                        </div>
+                      )
+                    }
+
+                    return (
+                      <div key={m.id} className="flex items-center gap-2 text-xs py-1">
+                        <a
+                          href={m.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={`flex items-center gap-2 flex-1 min-w-0 rounded-md px-1 -mx-1 ${
+                            visto ? 'text-slate-400' : 'text-indigo-600 hover:bg-indigo-50'
+                          }`}
+                        >
+                          <span className="shrink-0">{visto ? '✅' : iconoMaterial(m.nombre_archivo)}</span>
+                          <span className={`truncate ${visto ? 'line-through' : ''}`}>{numero}. {m.nombre_archivo}</span>
+                        </a>
+                        <span className="shrink-0 text-[10px] uppercase text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                          {tipoArchivo(m.nombre_archivo)}
+                        </span>
+                        {!visto && (
+                          <button
+                            onClick={() => marcarVisto(m.id)}
+                            className="shrink-0 text-[10px] bg-emerald-50 text-emerald-600 hover:bg-emerald-100 px-2 py-1 rounded-md"
+                          >
+                            Marcar leído
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               )}
 
-              {temaRetando === t.id && curso.permite_duelos && !curso.duelo_todo_curso && (
+              {temaRetando === t.id && duelosDisponibles && (
                 <div className="mt-3 border-t border-slate-100 pt-3">
                   {amigos.length === 0 ? (
                     <p className="text-xs text-slate-400">
@@ -329,6 +444,27 @@ export default function CursoDetalle() {
             </div>
           ))}
         </div>
+
+        {!vencido && curso.permite_individual && temas.length > 1 && (
+          materialCompleto ? (
+            <Link
+              to={`/curso/${id}/examen`}
+              className="mt-2 flex items-center gap-2 bg-indigo-600 text-white rounded-xl px-4 py-3 hover:bg-indigo-700"
+            >
+              <span className="text-lg">📝</span>
+              <span className="flex-1 text-sm font-medium">{materialesFlat.length + 1}. Examen final</span>
+              <span className="text-xs">→</span>
+            </Link>
+          ) : (
+            <div className="mt-2 flex items-center gap-2 bg-slate-100 text-slate-400 rounded-xl px-4 py-3">
+              <span className="text-lg">🔒</span>
+              <span className="flex-1">
+                <span className="block text-sm font-medium">{materialesFlat.length + 1}. Examen final</span>
+                <span className="block text-xs">Revisa todo el material de estudio para desbloquearlo</span>
+              </span>
+            </div>
+          )
+        )}
       </main>
     </div>
   )

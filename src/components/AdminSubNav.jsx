@@ -7,12 +7,12 @@ export default function AdminSubNav() {
 
   const tabs = esSuperAdmin
     ? [
-        { to: '/admin', label: 'Cursos' },
+        { to: '/admin', label: 'Actividades' },
         { to: '/admin/logros', label: 'Logros' },
         { to: '/admin/organizaciones', label: 'Organizaciones' },
       ]
     : [
-        { to: '/admin', label: 'Cursos' },
+        { to: '/admin', label: 'Actividades' },
         { to: '/admin/organizacion', label: 'Mi organización' },
       ]
 

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { elegirPreguntas } from '../lib/preguntas'
+import { elegirPreguntas, mezclarAlternativas } from '../lib/preguntas'
 import NavBar from '../components/NavBar'
 
 export default function ExamenCurso() {
@@ -66,6 +66,25 @@ export default function ExamenCurso() {
       return
     }
 
+    const { data: materialesData } = await supabase
+      .from('materiales_tema')
+      .select('id')
+      .in('tema_id', temaIds)
+
+    if ((materialesData || []).length > 0) {
+      const { data: vistosData } = await supabase
+        .from('materiales_vistos')
+        .select('material_id')
+        .eq('usuario_id', perfil.id)
+        .in('material_id', materialesData.map((m) => m.id))
+
+      if ((vistosData || []).length < materialesData.length) {
+        setError('Debes revisar todo el material de estudio antes de rendir el examen.')
+        setCargando(false)
+        return
+      }
+    }
+
     const cantidadPreguntas = cursoData?.cantidad_preguntas || 5
     const { ids: idsElegidos, error: errorSeleccion } = await elegirPreguntas({
       temaIds,
@@ -86,7 +105,7 @@ export default function ExamenCurso() {
       .in('id', idsElegidos)
 
     const porId = Object.fromEntries((preguntasElegidas || []).map((p) => [p.id, p]))
-    setPreguntas(idsElegidos.map((id) => porId[id]))
+    setPreguntas(idsElegidos.map((id) => mezclarAlternativas(porId[id])))
     setCargando(false)
   }
 

@@ -5,6 +5,9 @@ import { supabase } from '../lib/supabase'
 
 const links = [
   { to: '/', label: 'Inicio' },
+  { to: '/cursos', label: 'Cursos' },
+  { to: '/pruebas', label: 'Pruebas' },
+  { to: '/trivias', label: 'Trivias' },
   { to: '/amigos', label: 'Amigos' },
 ]
 
@@ -13,6 +16,9 @@ export default function NavBar() {
   const [solicitudesPendientes, setSolicitudesPendientes] = useState(0)
   const [duelosPendientes, setDuelosPendientes] = useState(0)
   const [solicitudesPlazoPendientes, setSolicitudesPlazoPendientes] = useState(0)
+  const [asignacionesCursosNuevas, setAsignacionesCursosNuevas] = useState(0)
+  const [asignacionesPruebasNuevas, setAsignacionesPruebasNuevas] = useState(0)
+  const [asignacionesTriviasNuevas, setAsignacionesTriviasNuevas] = useState(0)
 
   useEffect(() => {
     if (perfil) cargarNotificaciones()
@@ -32,23 +38,22 @@ export default function NavBar() {
       .eq('estado', 'en_curso')
       .or(`jugador_1.eq.${perfil.id},jugador_2.eq.${perfil.id}`)
 
-    if (!duelosEnCurso || duelosEnCurso.length === 0) {
+    if (duelosEnCurso && duelosEnCurso.length > 0) {
+      const { data: misRespuestas } = await supabase
+        .from('respuestas')
+        .select('duelo_id')
+        .eq('usuario_id', perfil.id)
+        .in('duelo_id', duelosEnCurso.map((d) => d.id))
+
+      const respondidasPorDuelo = {}
+      for (const r of misRespuestas || []) {
+        respondidasPorDuelo[r.duelo_id] = (respondidasPorDuelo[r.duelo_id] || 0) + 1
+      }
+      const pendientes = duelosEnCurso.filter((d) => (respondidasPorDuelo[d.id] || 0) < d.cantidad_preguntas)
+      setDuelosPendientes(pendientes.length)
+    } else {
       setDuelosPendientes(0)
-      return
     }
-
-    const { data: misRespuestas } = await supabase
-      .from('respuestas')
-      .select('duelo_id')
-      .eq('usuario_id', perfil.id)
-      .in('duelo_id', duelosEnCurso.map((d) => d.id))
-
-    const respondidasPorDuelo = {}
-    for (const r of misRespuestas || []) {
-      respondidasPorDuelo[r.duelo_id] = (respondidasPorDuelo[r.duelo_id] || 0) + 1
-    }
-    const pendientes = duelosEnCurso.filter((d) => (respondidasPorDuelo[d.id] || 0) < d.cantidad_preguntas)
-    setDuelosPendientes(pendientes.length)
 
     if (perfil.es_admin_plataforma || orgsAdmin?.length > 0) {
       const { count: plazoCount } = await supabase
@@ -57,13 +62,34 @@ export default function NavBar() {
         .eq('estado', 'pendiente')
       setSolicitudesPlazoPendientes(plazoCount || 0)
     }
+
+    const { data: asignacionesData } = await supabase
+      .from('inscripciones_curso')
+      .select('id, cursos!inner(permite_individual, permite_practica_individual)')
+      .eq('usuario_id', perfil.id)
+      .eq('estado', 'asignado')
+      .eq('visto', false)
+    setAsignacionesCursosNuevas((asignacionesData || []).filter((a) => a.cursos?.permite_individual).length)
+    setAsignacionesPruebasNuevas(
+      (asignacionesData || []).filter((a) => !a.cursos?.permite_individual && a.cursos?.permite_practica_individual).length
+    )
+    setAsignacionesTriviasNuevas(
+      (asignacionesData || []).filter((a) => !a.cursos?.permite_individual && !a.cursos?.permite_practica_individual).length
+    )
   }
 
   const todosLosLinks = perfil?.es_admin_plataforma || orgsAdmin?.length > 0
     ? [...links, { to: '/admin', label: 'Administrar', labelCorto: 'Admin' }]
     : links
 
-  const notificaciones = { '/': duelosPendientes, '/amigos': solicitudesPendientes, '/admin': solicitudesPlazoPendientes }
+  const notificaciones = {
+    '/': duelosPendientes,
+    '/cursos': asignacionesCursosNuevas,
+    '/pruebas': asignacionesPruebasNuevas,
+    '/trivias': asignacionesTriviasNuevas,
+    '/amigos': solicitudesPendientes,
+    '/admin': solicitudesPlazoPendientes,
+  }
 
   return (
     <header className="border-b border-slate-200 bg-white sticky top-0 z-10">

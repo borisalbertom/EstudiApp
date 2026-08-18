@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { iconoMaterial } from '../lib/materiales'
 import NavBar from '../components/NavBar'
 
 export default function AdminCurso() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const { perfil, orgsAdmin } = useAuth()
   const esSuperAdmin = perfil?.es_admin_plataforma || false
 
   const [curso, setCurso] = useState(null)
+  const [cursoGuardado, setCursoGuardado] = useState(null)
   const [temas, setTemas] = useState([])
   const [temaEditando, setTemaEditando] = useState(null)
   const [nombreEditado, setNombreEditado] = useState('')
@@ -23,25 +26,57 @@ export default function AdminCurso() {
   const [creandoTema, setCreandoTema] = useState(false)
   const [solicitudesPlazo, setSolicitudesPlazo] = useState([])
   const [seccion, setSeccion] = useState('configuracion') // 'configuracion' | 'temas'
+  const [miembros, setMiembros] = useState([])
+  const [inscripcionesPorUsuario, setInscripcionesPorUsuario] = useState({})
+  const [seleccionados, setSeleccionados] = useState([])
+  const [asignando, setAsignando] = useState(false)
+  const [configSucia, setConfigSucia] = useState(false)
+  const [guardandoConfig, setGuardandoConfig] = useState(false)
+  const [confirmandoSalida, setConfirmandoSalida] = useState(false)
+  const [temasGuardados, setTemasGuardados] = useState({})
+  const [confirmandoBorrarTema, setConfirmandoBorrarTema] = useState(null)
+  const [confirmandoBorrarMaterial, setConfirmandoBorrarMaterial] = useState(null)
 
   useEffect(() => {
     cargarCurso()
     cargarSolicitudesPlazo()
   }, [id])
 
+  useEffect(() => {
+    if (!configSucia) return
+    function avisar(e) {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', avisar)
+    return () => window.removeEventListener('beforeunload', avisar)
+  }, [configSucia])
+
+  function volverACursos() {
+    if (configSucia) {
+      setConfirmandoSalida(true)
+      return
+    }
+    navigate('/admin')
+  }
+
   async function cargarCurso() {
     setCargando(true)
+    setConfigSucia(false)
     const [{ data: cursoData }, { data: temasData }] = await Promise.all([
       supabase
         .from('cursos')
-        .select('id, nombre, organizacion_id, permite_duelos, permite_individual, mostrar_ranking, cantidad_preguntas, porcentaje_certificacion, tiempo_por_pregunta, duelo_todo_curso, fecha_fin')
+        .select('id, nombre, organizacion_id, permite_duelos, permite_individual, permite_practica_individual, mostrar_ranking, cantidad_preguntas, porcentaje_certificacion, tiempo_por_pregunta, fecha_fin, fecha_fin_duelos')
         .eq('id', id)
         .single(),
       supabase.from('temas').select('id, nombre, orden, tiempo_por_pregunta').eq('curso_id', id).order('orden', { ascending: true }),
     ])
     setCurso(cursoData)
+    setCursoGuardado(cursoData)
     setTemas(temasData || [])
+    setTemasGuardados(Object.fromEntries((temasData || []).map((t) => [t.id, t.tiempo_por_pregunta])))
     setCargando(false)
+    if (cursoData?.organizacion_id) cargarMiembros(cursoData.organizacion_id)
 
     const temaIds = (temasData || []).map((t) => t.id)
     if (temaIds.length > 0) {
@@ -49,7 +84,7 @@ export default function AdminCurso() {
         .from('materiales_tema')
         .select('id, tema_id, nombre_archivo, url')
         .in('tema_id', temaIds)
-        .order('creado_en', { ascending: false })
+        .order('creado_en', { ascending: true })
 
       const agrupados = {}
       for (const m of materialesData || []) {
@@ -91,6 +126,47 @@ export default function AdminCurso() {
     cargarSolicitudesPlazo()
   }
 
+  async function cargarMiembros(organizacionId) {
+    const [{ data: miembrosData }, { data: inscripcionesData }] = await Promise.all([
+      supabase
+        .from('miembros_organizacion')
+        .select('usuario_id, perfiles(nombre, email)')
+        .eq('organizacion_id', organizacionId),
+      supabase.from('inscripciones_curso').select('id, usuario_id, estado').eq('curso_id', id),
+    ])
+    setMiembros(miembrosData || [])
+    const agrupadas = {}
+    for (const i of inscripcionesData || []) agrupadas[i.usuario_id] = i
+    setInscripcionesPorUsuario(agrupadas)
+  }
+
+  function alternarSeleccionado(usuarioId) {
+    setSeleccionados((prev) =>
+      prev.includes(usuarioId) ? prev.filter((u) => u !== usuarioId) : [...prev, usuarioId]
+    )
+  }
+
+  async function asignarSeleccionados() {
+    if (seleccionados.length === 0) return
+    setAsignando(true)
+    const filas = seleccionados.map((usuarioId) => ({
+      curso_id: id,
+      usuario_id: usuarioId,
+      estado: 'asignado',
+      asignado_por: perfil.id,
+      visto: false,
+    }))
+    await supabase.from('inscripciones_curso').insert(filas)
+    setSeleccionados([])
+    setAsignando(false)
+    cargarMiembros(curso.organizacion_id)
+  }
+
+  async function quitarAcceso(inscripcionId) {
+    await supabase.from('inscripciones_curso').delete().eq('id', inscripcionId)
+    cargarMiembros(curso.organizacion_id)
+  }
+
   async function crearTema(e) {
     e.preventDefault()
     if (!nombreTema.trim()) return
@@ -117,9 +193,31 @@ export default function AdminCurso() {
     cargarCurso()
   }
 
-  async function actualizarTiempoTema(temaId, valor) {
+  function actualizarTiempoTema(temaId, valor) {
     setTemas((prev) => prev.map((t) => (t.id === temaId ? { ...t, tiempo_por_pregunta: valor } : t)))
-    await supabase.from('temas').update({ tiempo_por_pregunta: valor }).eq('id', temaId)
+  }
+
+  async function guardarTiempoTema(temaId) {
+    const tema = temas.find((t) => t.id === temaId)
+    await supabase.from('temas').update({ tiempo_por_pregunta: tema.tiempo_por_pregunta }).eq('id', temaId)
+    setTemasGuardados((prev) => ({ ...prev, [temaId]: tema.tiempo_por_pregunta }))
+  }
+
+  async function moverTema(index, direccion) {
+    const nuevoIndex = index + direccion
+    if (nuevoIndex < 0 || nuevoIndex >= temas.length) return
+    const a = temas[index]
+    const b = temas[nuevoIndex]
+
+    const nuevosTemas = [...temas]
+    nuevosTemas[index] = { ...b, orden: a.orden }
+    nuevosTemas[nuevoIndex] = { ...a, orden: b.orden }
+    setTemas(nuevosTemas)
+
+    await Promise.all([
+      supabase.from('temas').update({ orden: b.orden }).eq('id', a.id),
+      supabase.from('temas').update({ orden: a.orden }).eq('id', b.id),
+    ])
   }
 
   async function borrarTema(temaId) {
@@ -130,11 +228,13 @@ export default function AdminCurso() {
       .eq('tema_id', temaId)
 
     if ((count || 0) > 0) {
+      setConfirmandoBorrarTema(null)
       setErrorTema('Este contenido tiene preguntas — desactívalas todas antes de poder borrarlo.')
       return
     }
 
     await supabase.from('temas').delete().eq('id', temaId)
+    setConfirmandoBorrarTema(null)
     cargarCurso()
   }
 
@@ -152,7 +252,7 @@ export default function AdminCurso() {
       .from('materiales_tema')
       .select('id, nombre_archivo, url, creado_en')
       .eq('tema_id', temaId)
-      .order('creado_en', { ascending: false })
+      .order('creado_en', { ascending: true })
     setMaterialesPorTema((prev) => ({ ...prev, [temaId]: data || [] }))
   }
 
@@ -178,6 +278,7 @@ export default function AdminCurso() {
 
   async function borrarMaterial(materialId, temaId) {
     await supabase.from('materiales_tema').delete().eq('id', materialId)
+    setConfirmandoBorrarMaterial(null)
     cargarMateriales(temaId)
   }
 
@@ -186,15 +287,64 @@ export default function AdminCurso() {
     cargarPreguntas(temaId)
   }
 
-  async function actualizarConfig(campo, valor) {
+  function actualizarConfig(campo, valor) {
     setCurso((prev) => ({ ...prev, [campo]: valor }))
-    await supabase.from('cursos').update({ [campo]: valor }).eq('id', id)
+    setConfigSucia(true)
   }
 
-  async function actualizarTipo(tipo) {
-    const cambios = { permite_duelos: tipo === 'retos', permite_individual: tipo === 'certificacion' }
+  function actualizarTipo(tipo) {
+    const cambios = {
+      permite_duelos: tipo !== 'certificacion',
+      permite_individual: tipo === 'certificacion',
+      permite_practica_individual: tipo === 'prueba',
+    }
+    if (tipo === 'certificacion') cambios.fecha_fin_duelos = null
+    if (tipo !== 'certificacion' && seccion === 'material') setSeccion('configuracion')
     setCurso((prev) => ({ ...prev, ...cambios }))
-    await supabase.from('cursos').update(cambios).eq('id', id)
+    setConfigSucia(true)
+  }
+
+  function actualizarFechaFin(valor) {
+    const cambios = { fecha_fin: valor || null }
+    if (valor && curso?.fecha_fin_duelos && curso.fecha_fin_duelos > valor) {
+      cambios.fecha_fin_duelos = valor
+    }
+    setCurso((prev) => ({ ...prev, ...cambios }))
+    setConfigSucia(true)
+  }
+
+  async function guardarConfiguracion() {
+    const confirmado = window.confirm('¿Guardar los cambios de configuración?')
+    if (!confirmado) return
+    setGuardandoConfig(true)
+    await supabase
+      .from('cursos')
+      .update({
+        cantidad_preguntas: curso.cantidad_preguntas,
+        tiempo_por_pregunta: curso.tiempo_por_pregunta,
+        fecha_fin: curso.fecha_fin,
+        permite_duelos: curso.permite_duelos,
+        permite_individual: curso.permite_individual,
+        permite_practica_individual: curso.permite_practica_individual,
+        porcentaje_certificacion: curso.porcentaje_certificacion,
+        fecha_fin_duelos: curso.fecha_fin_duelos,
+        mostrar_ranking: curso.mostrar_ranking,
+      })
+      .eq('id', id)
+    setGuardandoConfig(false)
+    setConfigSucia(false)
+    setCursoGuardado(curso)
+  }
+
+  function cancelarCambios() {
+    setCurso(cursoGuardado)
+    setConfigSucia(false)
+  }
+
+  async function actualizarFechaFinDuelos(valor) {
+    let final = valor || null
+    if (final && curso?.fecha_fin && final > curso.fecha_fin) final = curso.fecha_fin
+    await actualizarConfig('fecha_fin_duelos', final)
   }
 
   if (cargando) {
@@ -223,7 +373,7 @@ export default function AdminCurso() {
     <div className="min-h-screen bg-slate-50">
       <NavBar />
       <main className="max-w-3xl mx-auto px-4 py-6">
-        <Link to="/admin" className="text-xs text-slate-400 hover:text-indigo-600">← Volver a cursos</Link>
+        <button onClick={volverACursos} className="text-xs text-slate-400 hover:text-indigo-600">← Volver a actividades</button>
         <h1 className="text-xl font-semibold text-slate-800 mt-2 mb-4">{curso?.nombre}</h1>
 
         {solicitudesPlazo.length > 0 && (
@@ -256,7 +406,7 @@ export default function AdminCurso() {
               ))}
             </div>
             <p className="text-xs text-amber-700 mt-2">
-              Cambia la fecha límite en Configuración para reactivar el curso antes de marcar como resuelta.
+              Cambia y guarda la fecha límite en Configuración para reactivar el curso antes de marcar como resuelta.
             </p>
           </div>
         )}
@@ -265,8 +415,9 @@ export default function AdminCurso() {
           {[
             { id: 'configuracion', label: 'Configuración' },
             { id: 'temas', label: 'Contenido del curso' },
-            { id: 'material', label: 'Material de estudio' },
+            ...(curso?.permite_individual ? [{ id: 'material', label: 'Material de estudio' }] : []),
             { id: 'preguntas', label: 'Preguntas' },
+            ...(curso?.organizacion_id ? [{ id: 'asignar', label: 'Asignar' }] : []),
           ].map((s) => (
             <button
               key={s.id}
@@ -285,6 +436,68 @@ export default function AdminCurso() {
         {seccion === 'configuracion' && (
         <div className="bg-white border border-slate-200 rounded-xl p-4 mb-6 flex flex-col gap-2">
           <p className="text-sm font-medium text-slate-700 mb-1">Configuración del curso</p>
+          <p className="text-xs text-slate-500 mb-2">
+            Acá defines los ajustes generales del curso: cuántas preguntas se hacen por intento, el tiempo
+            por pregunta, la fecha límite del curso, si el curso es de Retos o Certificación, y si se
+            muestra el ranking.
+          </p>
+
+          <label className="text-xs text-slate-500 border-b border-slate-100 pb-3 mb-1">
+            Tipo de curso
+            <select
+              value={
+                curso?.permite_individual
+                  ? 'certificacion'
+                  : curso?.permite_practica_individual
+                    ? 'prueba'
+                    : 'trivia'
+              }
+              onChange={(e) => actualizarTipo(e.target.value)}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1"
+            >
+              <option value="certificacion">Certificación (evaluación individual)</option>
+              <option value="prueba">Pruebas (duelos + práctica libre)</option>
+              <option value="trivia">Trivias (solo duelos, sin práctica)</option>
+            </select>
+          </label>
+          {curso?.permite_individual && (
+            <>
+              <label className="text-xs text-slate-500 ml-5">
+                % para aprobar en el modo individual
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={curso?.porcentaje_certificacion ?? 70}
+                  onChange={(e) => actualizarConfig('porcentaje_certificacion', Number(e.target.value))}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1"
+                />
+              </label>
+              <label className="flex items-center gap-1.5 text-sm text-slate-600 ml-5">
+                <input
+                  type="checkbox"
+                  checked={curso?.permite_duelos || false}
+                  onChange={(e) => actualizarConfig('permite_duelos', e.target.checked)}
+                  className="accent-indigo-600"
+                />
+                Permitir duelos durante un periodo (para practicar antes del examen)
+              </label>
+              {curso?.permite_duelos && (
+                <>
+                  <label className="text-xs text-slate-500 ml-8">
+                    Fecha límite de duelos (vacío = sin límite; no puede ser posterior a la fecha del examen)
+                    <input
+                      type="date"
+                      value={curso?.fecha_fin_duelos ?? ''}
+                      max={curso?.fecha_fin || undefined}
+                      onChange={(e) => actualizarFechaFinDuelos(e.target.value)}
+                      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1"
+                    />
+                  </label>
+                </>
+              )}
+            </>
+          )}
 
           <label className="text-xs text-slate-500 mb-1">
             Preguntas por intento (duelos y modo individual)
@@ -309,18 +522,17 @@ export default function AdminCurso() {
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1"
             />
             <span className="block text-slate-400 mt-0.5 font-normal">
-              Valor por defecto. Se usa siempre en "Simular examen" y en retos de todo el curso;
-              en práctica y retos de un contenido específico, cada contenido puede tener su propio
-              valor (ver abajo) y este queda como respaldo si ese contenido no define uno.
+              Valor por defecto para todo el curso. Cada contenido puede definir su propio tiempo
+              más abajo, que tiene prioridad sobre este.
             </span>
           </label>
 
           <label className="text-xs text-slate-500 mb-1">
-            Fecha límite de publicación (vacío = sin fecha de término)
+            Fecha límite del curso (vacío = sin fecha de término)
             <input
               type="date"
               value={curso?.fecha_fin ?? ''}
-              onChange={(e) => actualizarConfig('fecha_fin', e.target.value || null)}
+              onChange={(e) => actualizarFechaFin(e.target.value)}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1"
             />
           </label>
@@ -330,48 +542,6 @@ export default function AdminCurso() {
             </p>
           )}
 
-          <div className="flex gap-4 text-sm text-slate-600">
-            <label className="flex items-center gap-1.5">
-              <input
-                type="radio"
-                checked={!curso?.permite_individual}
-                onChange={() => actualizarTipo('retos')}
-              />
-              Retos (duelos entre amigos)
-            </label>
-            <label className="flex items-center gap-1.5">
-              <input
-                type="radio"
-                checked={curso?.permite_individual || false}
-                onChange={() => actualizarTipo('certificacion')}
-              />
-              Certificación (evaluación individual)
-            </label>
-          </div>
-          {!curso?.permite_individual && (
-            <label className="flex items-center gap-1.5 text-sm text-slate-600 ml-5">
-              <input
-                type="checkbox"
-                checked={curso?.duelo_todo_curso || false}
-                onChange={(e) => actualizarConfig('duelo_todo_curso', e.target.checked)}
-                className="accent-indigo-600"
-              />
-              Duelos con preguntas de todo el curso (en vez de elegir un contenido)
-            </label>
-          )}
-          {curso?.permite_individual && (
-            <label className="text-xs text-slate-500 ml-5">
-              % para aprobar en el modo individual
-              <input
-                type="number"
-                min={0}
-                max={100}
-                value={curso?.porcentaje_certificacion ?? 70}
-                onChange={(e) => actualizarConfig('porcentaje_certificacion', Number(e.target.value))}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1"
-              />
-            </label>
-          )}
           <label className="flex items-center gap-1.5 text-sm text-slate-600">
             <input
               type="checkbox"
@@ -381,35 +551,83 @@ export default function AdminCurso() {
             />
             Mostrar ranking
           </label>
+
+          <div className="flex items-center gap-3 border-t border-slate-100 pt-3 mt-1">
+            <button
+              onClick={guardarConfiguracion}
+              disabled={!configSucia || guardandoConfig}
+              className="bg-indigo-600 text-white rounded-lg py-2 px-4 text-sm font-medium disabled:opacity-50"
+            >
+              {guardandoConfig ? 'Guardando...' : 'Guardar cambios'}
+            </button>
+            {configSucia && (
+              <button
+                onClick={cancelarCambios}
+                disabled={guardandoConfig}
+                className="text-sm text-slate-500 hover:text-red-500 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+            )}
+            {configSucia && <p className="text-xs text-amber-600 ml-auto">Tienes cambios sin guardar.</p>}
+          </div>
         </div>
         )}
 
         {seccion === 'temas' && (
         <>
-        <form onSubmit={crearTema} className="bg-white border border-slate-200 rounded-xl p-4 mb-6 flex gap-2">
-          <input
-            type="text"
-            placeholder="Nombre del nuevo contenido"
-            value={nombreTema}
-            onChange={(e) => setNombreTema(e.target.value)}
-            className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm"
-            required
-          />
-          <button
-            type="submit"
-            disabled={creandoTema}
-            className="bg-indigo-600 text-white text-sm px-4 rounded-lg disabled:opacity-50"
-          >
-            {creandoTema ? 'Creando...' : 'Agregar contenido'}
-          </button>
-        </form>
+        <div className="bg-white border border-slate-200 rounded-xl p-4 mb-6">
+          <p className="text-sm font-medium text-slate-700 mb-1">Contenido del curso</p>
+          <p className="text-xs text-slate-500 mb-3">
+            Cada contenido agrupa sus propias preguntas — crea varios si quieres separar el curso por
+            módulos o capítulos, o uno solo si no necesitas dividirlo. Desde acá puedes renombrarlos,
+            borrarlos y definir un tiempo por pregunta específico para cada uno.
+          </p>
+          <form onSubmit={crearTema} className="flex gap-2">
+            <input
+              type="text"
+              placeholder="Nombre del nuevo contenido"
+              value={nombreTema}
+              onChange={(e) => setNombreTema(e.target.value)}
+              className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm"
+              required
+            />
+            <button
+              type="submit"
+              disabled={creandoTema}
+              className="bg-indigo-600 text-white text-sm px-4 rounded-lg disabled:opacity-50"
+            >
+              {creandoTema ? 'Creando...' : 'Agregar contenido'}
+            </button>
+          </form>
+        </div>
 
         {errorTema && <p className="text-xs text-red-500 mb-3">{errorTema}</p>}
 
         <div className="flex flex-col gap-3">
-          {temas.map((t) => (
+          {temas.map((t, i) => (
             <div key={t.id} className="bg-white border border-slate-200 rounded-xl p-4">
               <div className="flex items-center justify-between gap-2">
+                {temaEditando !== t.id && (
+                  <div className="flex flex-col shrink-0">
+                    <button
+                      onClick={() => moverTema(i, -1)}
+                      disabled={i === 0}
+                      className="text-slate-400 hover:text-indigo-600 disabled:opacity-30 disabled:hover:text-slate-400 leading-none"
+                      title="Subir"
+                    >
+                      ▲
+                    </button>
+                    <button
+                      onClick={() => moverTema(i, 1)}
+                      disabled={i === temas.length - 1}
+                      className="text-slate-400 hover:text-indigo-600 disabled:opacity-30 disabled:hover:text-slate-400 leading-none"
+                      title="Bajar"
+                    >
+                      ▼
+                    </button>
+                  </div>
+                )}
                 {temaEditando === t.id ? (
                   <div className="flex-1 flex gap-2">
                     <input
@@ -426,7 +644,7 @@ export default function AdminCurso() {
                   <p className="font-medium text-slate-800 flex-1">{t.nombre}</p>
                 )}
 
-                {temaEditando !== t.id && (
+                {temaEditando !== t.id && confirmandoBorrarTema !== t.id && (
                   <div className="flex gap-2 shrink-0">
                     <button
                       onClick={() => {
@@ -438,11 +656,18 @@ export default function AdminCurso() {
                       Editar
                     </button>
                     <button
-                      onClick={() => borrarTema(t.id)}
+                      onClick={() => setConfirmandoBorrarTema(t.id)}
                       className="text-xs text-slate-400 hover:text-red-500"
                     >
                       Borrar
                     </button>
+                  </div>
+                )}
+                {confirmandoBorrarTema === t.id && (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-xs text-red-500">¿Borrar?</span>
+                    <button onClick={() => borrarTema(t.id)} className="text-xs text-red-600 font-medium">Sí, borrar</button>
+                    <button onClick={() => setConfirmandoBorrarTema(null)} className="text-xs text-slate-400">Cancelar</button>
                   </div>
                 )}
               </div>
@@ -462,11 +687,15 @@ export default function AdminCurso() {
                       }
                       className="w-40 border border-slate-200 rounded-md px-2 py-0.5 text-slate-600"
                     />
+                    {t.tiempo_por_pregunta !== temasGuardados[t.id] && (
+                      <button onClick={() => guardarTiempoTema(t.id)} className="text-xs text-indigo-600 font-medium">
+                        Guardar
+                      </button>
+                    )}
                   </label>
                   <p className="text-slate-300 text-xs mt-0.5">
                     Vacío = usa el valor del curso ({curso?.tiempo_por_pregunta ?? 0}s). Solo aplica al
-                    practicar o retar en este contenido específico — no cambia el valor de arriba, ni afecta
-                    "Simular examen" o los retos de todo el curso.
+                    practicar o retar en este contenido específico.
                   </p>
                 </div>
               )}
@@ -478,6 +707,13 @@ export default function AdminCurso() {
 
         {seccion === 'material' && (
         <div className="flex flex-col gap-3">
+          <div className="bg-white border border-slate-200 rounded-xl p-4">
+            <p className="text-sm font-medium text-slate-700 mb-1">Material de estudio</p>
+            <p className="text-xs text-slate-500">
+              Sube acá los archivos (PDF, documentos, etc.) que quieras poner a disposición de los
+              estudiantes para prepararse, organizados por cada contenido del curso.
+            </p>
+          </div>
           {temas.length === 0 && (
             <div className="bg-white border border-slate-200 rounded-xl p-4 text-sm text-slate-500">
               Este curso todavía no tiene contenido cargado.
@@ -490,7 +726,7 @@ export default function AdminCurso() {
                 {(materialesPorTema[t.id] || []).length === 0 && (
                   <p className="text-xs text-slate-400">Todavía no hay material subido.</p>
                 )}
-                {(materialesPorTema[t.id] || []).map((m) => (
+                {(materialesPorTema[t.id] || []).map((m, i) => (
                   <div key={m.id} className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2">
                     <a
                       href={m.url}
@@ -498,14 +734,25 @@ export default function AdminCurso() {
                       rel="noreferrer"
                       className="text-sm text-indigo-600 hover:underline truncate"
                     >
-                      {m.nombre_archivo}
+                      {i + 1}. {iconoMaterial(m.nombre_archivo)} {m.nombre_archivo}
                     </a>
-                    <button
-                      onClick={() => borrarMaterial(m.id, t.id)}
-                      className="text-xs text-slate-400 hover:text-red-500 shrink-0 ml-2"
-                    >
-                      Borrar
-                    </button>
+                    {confirmandoBorrarMaterial === m.id ? (
+                      <div className="flex items-center gap-2 shrink-0 ml-2">
+                        <button onClick={() => borrarMaterial(m.id, t.id)} className="text-xs text-red-600 font-medium">
+                          Sí, borrar
+                        </button>
+                        <button onClick={() => setConfirmandoBorrarMaterial(null)} className="text-xs text-slate-400">
+                          Cancelar
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmandoBorrarMaterial(m.id)}
+                        className="text-xs text-slate-400 hover:text-red-500 shrink-0 ml-2"
+                      >
+                        Borrar
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -525,6 +772,13 @@ export default function AdminCurso() {
 
         {seccion === 'preguntas' && (
         <div className="flex flex-col gap-3">
+          <div className="bg-white border border-slate-200 rounded-xl p-4">
+            <p className="text-sm font-medium text-slate-700 mb-1">Preguntas</p>
+            <p className="text-xs text-slate-500">
+              Acá creas y editas las preguntas de opción múltiple de cada contenido, defines su
+              dificultad, y puedes activarlas o desactivarlas sin borrarlas.
+            </p>
+          </div>
           {temas.length === 0 && (
             <div className="bg-white border border-slate-200 rounded-xl p-4 text-sm text-slate-500">
               Este curso todavía no tiene contenido cargado.
@@ -543,7 +797,93 @@ export default function AdminCurso() {
           ))}
         </div>
         )}
+
+        {seccion === 'asignar' && (
+        <div className="bg-white border border-slate-200 rounded-xl p-4">
+          <p className="text-sm font-medium text-slate-700 mb-1">Asignar curso a miembros de la organización</p>
+          <p className="text-xs text-slate-500 mb-3">
+            Selecciona a los miembros de tu organización que quieres que tengan acceso a este curso
+            privado. Quedan inscritos de inmediato y les aparece en su lista de cursos; también puedes
+            quitarles el acceso cuando quieras.
+          </p>
+
+          {miembros.length === 0 && (
+            <p className="text-sm text-slate-500">Esta organización todavía no tiene miembros.</p>
+          )}
+
+          <div className="flex flex-col gap-1">
+            {miembros.map((m) => {
+              const inscripcion = inscripcionesPorUsuario[m.usuario_id]
+              return (
+                <div key={m.usuario_id} className="flex items-center justify-between gap-2 py-1.5 border-b border-slate-100 last:border-0">
+                  <label className="flex items-center gap-2 text-sm text-slate-700">
+                    {!inscripcion && (
+                      <input
+                        type="checkbox"
+                        checked={seleccionados.includes(m.usuario_id)}
+                        onChange={() => alternarSeleccionado(m.usuario_id)}
+                        className="accent-indigo-600"
+                      />
+                    )}
+                    <span>
+                      {m.perfiles?.nombre}
+                      <span className="text-xs text-slate-400"> · {m.perfiles?.email}</span>
+                    </span>
+                  </label>
+                  {inscripcion ? (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs bg-emerald-50 text-emerald-600 px-2 py-1 rounded-md">
+                        {inscripcion.estado === 'asignado' ? 'Asignado' : 'Inscrito'}
+                      </span>
+                      <button
+                        onClick={() => quitarAcceso(inscripcion.id)}
+                        className="text-xs text-red-500 hover:underline"
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              )
+            })}
+          </div>
+
+          {miembros.length > 0 && (
+            <button
+              onClick={asignarSeleccionados}
+              disabled={seleccionados.length === 0 || asignando}
+              className="mt-4 bg-indigo-600 text-white rounded-lg py-2 px-4 text-sm font-medium disabled:opacity-50"
+            >
+              {asignando ? 'Asignando...' : `Asignar a ${seleccionados.length} seleccionado(s)`}
+            </button>
+          )}
+        </div>
+        )}
       </main>
+
+      {confirmandoSalida && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-4 max-w-sm w-full">
+            <p className="text-sm text-slate-700 mb-4">
+              Tienes cambios de configuración sin guardar. ¿Seguro que quieres salir sin guardar?
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setConfirmandoSalida(false)}
+                className="text-sm text-slate-500 hover:text-slate-700 px-3 py-1.5"
+              >
+                Seguir editando
+              </button>
+              <button
+                onClick={() => navigate('/admin')}
+                className="text-sm bg-red-600 text-white rounded-lg px-3 py-1.5"
+              >
+                Salir sin guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

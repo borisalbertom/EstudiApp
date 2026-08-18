@@ -15,8 +15,9 @@ export default function AdminCursos() {
   const [descripcion, setDescripcion] = useState('')
   const [visibilidad, setVisibilidad] = useState(esSuperAdmin ? 'publico' : 'privado')
   const [organizacionId, setOrganizacionId] = useState('')
-  const [tipoCurso, setTipoCurso] = useState('retos') // 'retos' | 'certificacion'
-  const [dueloTodoCurso, setDueloTodoCurso] = useState(false)
+  const [tipoCurso, setTipoCurso] = useState('prueba') // 'certificacion' | 'prueba' | 'trivia'
+  const [activarDuelosCert, setActivarDuelosCert] = useState(false)
+  const [fechaFinDuelos, setFechaFinDuelos] = useState('')
   const [mostrarRanking, setMostrarRanking] = useState(true)
   const [cantidadPreguntas, setCantidadPreguntas] = useState(5)
   const [porcentajeCertificacion, setPorcentajeCertificacion] = useState(70)
@@ -25,16 +26,22 @@ export default function AdminCursos() {
   const [creando, setCreando] = useState(false)
   const [error, setError] = useState('')
   const [mostrarFormulario, setMostrarFormulario] = useState(false)
+  const [filtroTipo, setFiltroTipo] = useState('curso') // 'curso' | 'prueba' | 'trivia'
 
   useEffect(() => {
     cargarCursos()
     cargarOrganizaciones()
   }, [])
 
+  function abrirFormulario(tipo) {
+    setTipoCurso(tipo)
+    setMostrarFormulario(true)
+  }
+
   async function cargarCursos() {
     let consulta = supabase
       .from('cursos')
-      .select('id, nombre, visibilidad, organizacion_id, fecha_fin, permite_individual, organizaciones(nombre_empresa)')
+      .select('id, nombre, visibilidad, organizacion_id, fecha_fin, permite_individual, permite_practica_individual, organizaciones(nombre_empresa)')
       .order('creado_en', { ascending: false })
     if (!esSuperAdmin) consulta = consulta.in('organizacion_id', orgsAdmin)
     const { data } = await consulta
@@ -68,24 +75,28 @@ export default function AdminCursos() {
       visibilidad: visibilidadFinal,
       organizacion_id: visibilidadFinal === 'privado' ? organizacionId || null : null,
       creado_por: perfil.id,
-      permite_duelos: tipoCurso === 'retos',
+      permite_duelos: tipoCurso !== 'certificacion' || activarDuelosCert,
       permite_individual: tipoCurso === 'certificacion',
-      duelo_todo_curso: tipoCurso === 'retos' ? dueloTodoCurso : false,
+      permite_practica_individual: tipoCurso === 'prueba',
       mostrar_ranking: mostrarRanking,
       cantidad_preguntas: cantidadPreguntas,
       porcentaje_certificacion: porcentajeCertificacion,
       tiempo_por_pregunta: tiempoPorPregunta,
       fecha_fin: fechaFin || null,
+      fecha_fin_duelos: tipoCurso === 'certificacion' && activarDuelosCert
+        ? (fechaFinDuelos && (!fechaFin || fechaFinDuelos <= fechaFin) ? fechaFinDuelos : fechaFin || null)
+        : null,
     })
 
-    if (error) setError('No se pudo crear el curso.')
+    if (error) setError('No se pudo crear la actividad.')
     else {
       setNombre('')
       setDescripcion('')
       setVisibilidad(esSuperAdmin ? 'publico' : 'privado')
       setOrganizacionId(!esSuperAdmin && organizaciones.length === 1 ? organizaciones[0].id : '')
-      setTipoCurso('retos')
-      setDueloTodoCurso(false)
+      setTipoCurso('prueba')
+      setActivarDuelosCert(false)
+      setFechaFinDuelos('')
       setMostrarRanking(true)
       setCantidadPreguntas(5)
       setPorcentajeCertificacion(70)
@@ -112,22 +123,48 @@ export default function AdminCursos() {
     <div className="min-h-screen bg-slate-50">
       <NavBar />
       <main className="max-w-3xl mx-auto px-4 py-6">
-        <p className="text-lg font-medium text-slate-800 mb-4">Administrar cursos</p>
+        <p className="text-lg font-medium text-slate-800 mb-4">Administrar actividades</p>
         <AdminSubNav />
 
-        <button
-          onClick={() => setMostrarFormulario((prev) => !prev)}
-          className="w-full bg-white border border-dashed border-indigo-300 text-indigo-600 rounded-xl p-3 mb-6 text-sm font-medium hover:bg-indigo-50"
-        >
-          {mostrarFormulario ? '✕ Cancelar' : '+ Crear curso'}
-        </button>
+        {!mostrarFormulario && (
+        <div className="grid grid-cols-3 gap-2 mb-6">
+          <button
+            onClick={() => abrirFormulario('certificacion')}
+            className="bg-white border border-dashed border-indigo-300 text-indigo-600 rounded-xl p-3 text-sm font-medium hover:bg-indigo-50"
+          >
+            + Crear curso
+          </button>
+          <button
+            onClick={() => abrirFormulario('prueba')}
+            className="bg-white border border-dashed border-indigo-300 text-indigo-600 rounded-xl p-3 text-sm font-medium hover:bg-indigo-50"
+          >
+            + Crear prueba
+          </button>
+          <button
+            onClick={() => abrirFormulario('trivia')}
+            className="bg-white border border-dashed border-indigo-300 text-indigo-600 rounded-xl p-3 text-sm font-medium hover:bg-indigo-50"
+          >
+            + Crear trivia
+          </button>
+        </div>
+        )}
 
         {mostrarFormulario && (
         <form onSubmit={crearCurso} className="bg-white border border-slate-200 rounded-xl p-4 mb-6 flex flex-col gap-3">
-          <p className="text-sm font-medium text-slate-700">Nuevo curso</p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-slate-700">
+              {tipoCurso === 'certificacion' && 'Nuevo curso'}
+              {tipoCurso === 'prueba' && 'Nueva prueba'}
+              {tipoCurso === 'trivia' && 'Nueva trivia'}
+            </p>
+            <button type="button" onClick={() => setMostrarFormulario(false)} className="text-xs text-slate-400 hover:text-red-500">
+              ✕ Cancelar
+            </button>
+          </div>
+
           <input
             type="text"
-            placeholder="Nombre del curso"
+            placeholder="Nombre"
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             className="border border-slate-300 rounded-lg px-3 py-2 text-sm"
@@ -199,7 +236,7 @@ export default function AdminCursos() {
           </label>
 
           <label className="text-xs text-slate-500">
-            Fecha límite de publicación (vacío = sin fecha de término)
+            Fecha límite (vacío = sin fecha de término)
             <input
               type="date"
               value={fechaFin}
@@ -209,49 +246,43 @@ export default function AdminCursos() {
           </label>
 
           <div className="flex flex-col gap-2 text-sm text-slate-600">
-            <div className="flex gap-4">
-              <label className="flex items-center gap-1.5">
-                <input
-                  type="radio"
-                  checked={tipoCurso === 'retos'}
-                  onChange={() => setTipoCurso('retos')}
-                />
-                Retos (duelos entre amigos)
-              </label>
-              <label className="flex items-center gap-1.5">
-                <input
-                  type="radio"
-                  checked={tipoCurso === 'certificacion'}
-                  onChange={() => setTipoCurso('certificacion')}
-                />
-                Certificación (evaluación individual)
-              </label>
-            </div>
-
-            {tipoCurso === 'retos' && (
-              <label className="flex items-center gap-1.5 text-xs text-slate-500 ml-5">
-                <input
-                  type="checkbox"
-                  checked={dueloTodoCurso}
-                  onChange={(e) => setDueloTodoCurso(e.target.checked)}
-                  className="accent-indigo-600"
-                />
-                Duelos con preguntas de todo el curso (en vez de elegir un contenido)
-              </label>
-            )}
-
             {tipoCurso === 'certificacion' && (
-              <label className="text-xs text-slate-500 ml-5">
-                % para aprobar en el modo individual
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={porcentajeCertificacion}
-                  onChange={(e) => setPorcentajeCertificacion(Number(e.target.value))}
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1"
-                />
-              </label>
+              <>
+                <label className="text-xs text-slate-500 ml-5">
+                  % para aprobar en el modo individual
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={porcentajeCertificacion}
+                    onChange={(e) => setPorcentajeCertificacion(Number(e.target.value))}
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1"
+                  />
+                </label>
+                <label className="flex items-center gap-1.5 text-xs text-slate-500 ml-5">
+                  <input
+                    type="checkbox"
+                    checked={activarDuelosCert}
+                    onChange={(e) => setActivarDuelosCert(e.target.checked)}
+                    className="accent-indigo-600"
+                  />
+                  Permitir duelos durante un periodo (para practicar antes del examen)
+                </label>
+                {activarDuelosCert && (
+                  <>
+                    <label className="text-xs text-slate-500 ml-8">
+                      Fecha límite de duelos (vacío = sin límite; no puede ser posterior al examen)
+                      <input
+                        type="date"
+                        value={fechaFinDuelos}
+                        max={fechaFin || undefined}
+                        onChange={(e) => setFechaFinDuelos(e.target.value)}
+                        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1"
+                      />
+                    </label>
+                  </>
+                )}
+              </>
             )}
 
             <label className="flex items-center gap-1.5">
@@ -272,17 +303,41 @@ export default function AdminCursos() {
             disabled={creando}
             className="bg-indigo-600 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50"
           >
-            {creando ? 'Creando...' : 'Crear curso'}
+            {creando ? 'Creando...' : 'Crear actividad'}
           </button>
         </form>
         )}
 
-        <p className="text-sm font-medium text-slate-700 mb-2">Cursos existentes</p>
+        <div className="flex items-center gap-4 border-b border-slate-200 mb-4 text-sm">
+          {[
+            { id: 'curso', label: 'Cursos' },
+            { id: 'prueba', label: 'Pruebas' },
+            { id: 'trivia', label: 'Trivias' },
+          ].map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setFiltroTipo(f.id)}
+              className={`pb-2 border-b-2 -mb-px ${
+                filtroTipo === f.id
+                  ? 'border-indigo-600 text-indigo-600 font-medium'
+                  : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
 
         {cargando && <p className="text-sm text-slate-400">Cargando...</p>}
 
         <div className="flex flex-col gap-2">
-          {cursos.map((c) => {
+          {cursos
+            .filter((c) => {
+              if (filtroTipo === 'curso') return c.permite_individual
+              if (filtroTipo === 'prueba') return !c.permite_individual && c.permite_practica_individual
+              return !c.permite_individual && !c.permite_practica_individual
+            })
+            .map((c) => {
             const vencido = c.fecha_fin && c.fecha_fin < new Date().toISOString().slice(0, 10)
             return (
               <Link
@@ -294,8 +349,6 @@ export default function AdminCursos() {
                   <p className="font-medium text-slate-800">{c.nombre}</p>
                   <p className="text-xs text-slate-500">
                     {c.visibilidad === 'publico' ? 'Público' : `Privado · ${c.organizaciones?.nombre_empresa || 'Empresa'}`}
-                    {' · '}
-                    {c.permite_individual ? '📝 Certificación' : '🎯 Retos'}
                     {c.fecha_fin && ` · ${vencido ? 'Vencido' : 'Vence'} ${c.fecha_fin}`}
                   </p>
                 </div>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { mezclarAlternativas } from '../lib/preguntas'
 import NavBar from '../components/NavBar'
 
 export default function JugarDuelo() {
@@ -84,7 +85,7 @@ export default function JugarDuelo() {
       .eq('usuario_id', perfil.id)
 
     const respondidas = new Set((misRespuestas || []).map((r) => r.pregunta_id))
-    const lista = (preguntasData || []).map((p) => p.preguntas)
+    const lista = (preguntasData || []).map((p) => mezclarAlternativas(p.preguntas))
 
     setDuelo(dueloData)
     setPreguntas(lista)

@@ -2,7 +2,10 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import RutaProtegida from './components/RutaProtegida'
 import Login from './pages/Login'
-import Home from './pages/Home'
+import Portada from './pages/Portada'
+import Cursos from './pages/Cursos'
+import Pruebas from './pages/Pruebas'
+import Trivias from './pages/Trivias'
 import Amigos from './pages/Amigos'
 import Perfil from './pages/Perfil'
 import CursoDetalle from './pages/CursoDetalle'
@@ -24,11 +27,28 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/" element={<Portada />} />
           <Route
-            path="/"
+            path="/cursos"
             element={
               <RutaProtegida>
-                <Home />
+                <Cursos />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/pruebas"
+            element={
+              <RutaProtegida>
+                <Pruebas />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/trivias"
+            element={
+              <RutaProtegida>
+                <Trivias />
               </RutaProtegida>
             }
           />
@@ -58,6 +78,14 @@ export default function App() {
           />
           <Route
             path="/curso/:cursoId/tema/:temaId/individual"
+            element={
+              <RutaProtegida>
+                <PracticaIndividual />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/curso/:cursoId/individual"
             element={
               <RutaProtegida>
                 <PracticaIndividual />
