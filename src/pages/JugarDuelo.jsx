@@ -11,10 +11,15 @@ export default function JugarDuelo() {
   const navigate = useNavigate()
 
   const [duelo, setDuelo] = useState(null)
+  const [rivalNombre, setRivalNombre] = useState('')
   const [preguntas, setPreguntas] = useState([])
   const [yaRespondidas, setYaRespondidas] = useState(new Set())
   const [indice, setIndice] = useState(0)
   const [correctas, setCorrectas] = useState(0)
+  const [rivalRespondidas, setRivalRespondidas] = useState(0)
+  const [rivalCorrectas, setRivalCorrectas] = useState(0)
+  const [esperandoRival, setEsperandoRival] = useState(false)
+  const [actualizando, setActualizando] = useState(false)
   const [seleccionada, setSeleccionada] = useState(null)
   const [mostrarResultado, setMostrarResultado] = useState(false)
   const [cargando, setCargando] = useState(true)
@@ -33,7 +38,7 @@ export default function JugarDuelo() {
   }, [mostrarResultado])
 
   useEffect(() => {
-    if (!tiempoPorPregunta || seleccionada !== null || cargando || mostrarResultado) {
+    if (!tiempoPorPregunta || seleccionada !== null || cargando || mostrarResultado || esperandoRival) {
       return
     }
     setTiempoRestante(tiempoPorPregunta)
@@ -41,7 +46,7 @@ export default function JugarDuelo() {
       setTiempoRestante((prev) => (prev > 0 ? prev - 1 : 0))
     }, 1000)
     return () => clearInterval(interval)
-  }, [indice, tiempoPorPregunta, cargando, mostrarResultado])
+  }, [indice, tiempoPorPregunta, cargando, mostrarResultado, esperandoRival])
 
   useEffect(() => {
     if (tiempoRestante === 0 && seleccionada === null) {
@@ -54,7 +59,9 @@ export default function JugarDuelo() {
 
     const { data: dueloData, error: errorDuelo } = await supabase
       .from('duelos')
-      .select('id, curso_id, tema_id, jugador_1, jugador_2, estado, cantidad_preguntas')
+      .select(
+        'id, curso_id, tema_id, jugador_1, jugador_2, estado, cantidad_preguntas, tiempo_por_pregunta, perfil_1:jugador_1(nombre), perfil_2:jugador_2(nombre)'
+      )
       .eq('id', id)
       .single()
 
@@ -64,13 +71,16 @@ export default function JugarDuelo() {
       return
     }
 
+    const rivalId = dueloData.jugador_1 === perfil.id ? dueloData.jugador_2 : dueloData.jugador_1
+    setRivalNombre((dueloData.jugador_1 === perfil.id ? dueloData.perfil_2 : dueloData.perfil_1)?.nombre || 'tu rival')
+
     const [{ data: cursoData }, { data: temaData }] = await Promise.all([
       supabase.from('cursos').select('tiempo_por_pregunta').eq('id', dueloData.curso_id).single(),
       dueloData.tema_id
         ? supabase.from('temas').select('tiempo_por_pregunta').eq('id', dueloData.tema_id).single()
         : Promise.resolve({ data: null }),
     ])
-    setTiempoPorPregunta(temaData?.tiempo_por_pregunta ?? cursoData?.tiempo_por_pregunta ?? 0)
+    setTiempoPorPregunta(dueloData.tiempo_por_pregunta ?? temaData?.tiempo_por_pregunta ?? cursoData?.tiempo_por_pregunta ?? 0)
 
     const { data: preguntasData } = await supabase
       .from('duelo_preguntas')
@@ -78,29 +88,58 @@ export default function JugarDuelo() {
       .eq('duelo_id', id)
       .order('orden', { ascending: true })
 
-    const { data: misRespuestas } = await supabase
-      .from('respuestas')
-      .select('pregunta_id, es_correcta')
-      .eq('duelo_id', id)
-      .eq('usuario_id', perfil.id)
+    const [{ data: misRespuestas }, { data: respuestasRival }] = await Promise.all([
+      supabase.from('respuestas').select('pregunta_id, es_correcta').eq('duelo_id', id).eq('usuario_id', perfil.id),
+      supabase.from('respuestas').select('pregunta_id, es_correcta').eq('duelo_id', id).eq('usuario_id', rivalId),
+    ])
 
     const respondidas = new Set((misRespuestas || []).map((r) => r.pregunta_id))
     const lista = (preguntasData || []).map((p) => mezclarAlternativas(p.preguntas))
+    const respondidasRival = (respuestasRival || []).length
 
     setDuelo(dueloData)
     setPreguntas(lista)
     setYaRespondidas(respondidas)
     setCorrectas((misRespuestas || []).filter((r) => r.es_correcta).length)
+    setRivalRespondidas(respondidasRival)
+    setRivalCorrectas((respuestasRival || []).filter((r) => r.es_correcta).length)
 
     const primeraSinResponder = lista.findIndex((p) => !respondidas.has(p.id))
     if (primeraSinResponder === -1) {
       setMostrarResultado(true)
+    } else if (dueloData.estado === 'en_curso' && primeraSinResponder > respondidasRival) {
+      setIndice(primeraSinResponder)
+      setEsperandoRival(true)
     } else {
       setIndice(primeraSinResponder)
       setInicioPregunta(Date.now())
     }
 
     setCargando(false)
+  }
+
+  async function consultarProgresoRival() {
+    const rivalId = duelo.jugador_1 === perfil.id ? duelo.jugador_2 : duelo.jugador_1
+    const { data } = await supabase
+      .from('respuestas')
+      .select('es_correcta')
+      .eq('duelo_id', id)
+      .eq('usuario_id', rivalId)
+
+    const respondidasRival = (data || []).length
+    setRivalRespondidas(respondidasRival)
+    setRivalCorrectas((data || []).filter((r) => r.es_correcta).length)
+    return respondidasRival
+  }
+
+  async function actualizarEsperando() {
+    setActualizando(true)
+    const respondidasRival = await consultarProgresoRival()
+    if (indice <= respondidasRival) {
+      setEsperandoRival(false)
+      setInicioPregunta(Date.now())
+    }
+    setActualizando(false)
   }
 
   async function responder(alternativaIndex) {
@@ -151,6 +190,15 @@ export default function JugarDuelo() {
     setIndice(siguienteIndice)
     setSeleccionada(null)
     setEnviando(false)
+
+    if (duelo.estado === 'en_curso') {
+      const respondidasRival = await consultarProgresoRival()
+      if (siguienteIndice > respondidasRival) {
+        setEsperandoRival(true)
+        return
+      }
+    }
+
     setInicioPregunta(Date.now())
   }
 
@@ -173,7 +221,7 @@ export default function JugarDuelo() {
 
   if (cargando) {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen bg-white">
         <NavBar />
         <main className="max-w-3xl mx-auto px-4 py-6 text-sm text-slate-400">Cargando duelo...</main>
       </div>
@@ -182,11 +230,11 @@ export default function JugarDuelo() {
 
   if (error && !duelo) {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen bg-white">
         <NavBar />
         <main className="max-w-3xl mx-auto px-4 py-6">
           <p className="text-sm text-red-500">{error}</p>
-          <Link to="/" className="text-sm text-indigo-600">Volver al inicio</Link>
+          <Link to="/" className="text-sm text-brand-blue-700">Volver al inicio</Link>
         </main>
       </div>
     )
@@ -197,16 +245,29 @@ export default function JugarDuelo() {
   const pregunta = preguntas[indice]
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-white">
       <NavBar />
-      <main className="max-w-3xl mx-auto px-4 py-6">
+      <main className="max-w-3xl mx-auto px-4 py-6 relative">
+        <div
+          className="absolute inset-x-0 top-0 h-28 pointer-events-none"
+          style={{
+            background:
+              'radial-gradient(80% 100% at 15% 0%, rgba(0,175,242,0.12), rgba(0,0,0,0) 70%), ' +
+              'radial-gradient(70% 100% at 100% 0%, rgba(255,187,0,0.12), rgba(0,0,0,0) 65%)',
+          }}
+        />
+
+        <div className="relative">
         <div className="flex items-center justify-between mb-1">
           <p className="text-xs text-slate-400">
             Pregunta {indice + 1} de {preguntas.length}
           </p>
           <div className="flex items-center gap-3">
-            <p className="text-sm font-medium text-indigo-600">🎯 {correctas}/{preguntas.length} aciertos</p>
-            {tiempoPorPregunta > 0 && seleccionada === null && (
+            <p className="text-sm font-medium text-slate-500">
+              🎯 Tú <span className="text-brand-blue-700">{correctas}</span> · {rivalNombre}{' '}
+              <span className="text-slate-700">{rivalCorrectas}</span>
+            </p>
+            {tiempoPorPregunta > 0 && seleccionada === null && !esperandoRival && (
               <p className={`text-sm font-medium ${tiempoRestante <= 5 ? 'text-red-500' : 'text-slate-500'}`}>
                 ⏱ {tiempoRestante}s
               </p>
@@ -215,7 +276,7 @@ export default function JugarDuelo() {
         </div>
         <div className="w-full bg-slate-200 rounded-full h-1.5 mb-6">
           <div
-            className="bg-indigo-600 h-1.5 rounded-full transition-all"
+            className="bg-brand-blue-500 h-1.5 rounded-full transition-all"
             style={{ width: `${((indice + (seleccionada !== null ? 1 : 0)) / preguntas.length) * 100}%` }}
           />
         </div>
@@ -226,33 +287,51 @@ export default function JugarDuelo() {
 
         {error && <p className="text-xs text-red-500 mb-3">{error}</p>}
 
-        <div className="bg-white border border-slate-200 rounded-xl p-5">
-          <p className="font-medium text-slate-800 mb-4">{pregunta?.enunciado}</p>
-
-          <div className="flex flex-col gap-2">
-            {pregunta?.alternativas?.map((alt, i) => {
-              const esLaCorrecta = i === pregunta.correcta
-              const esLaSeleccionada = i === seleccionada
-              let estilo = 'border-slate-200 hover:border-indigo-300 hover:bg-indigo-50'
-
-              if (seleccionada !== null) {
-                if (esLaCorrecta) estilo = 'border-green-400 bg-green-50 text-green-700'
-                else if (esLaSeleccionada) estilo = 'border-red-400 bg-red-50 text-red-700'
-                else estilo = 'border-slate-200 opacity-60'
-              }
-
-              return (
-                <button
-                  key={i}
-                  disabled={seleccionada !== null}
-                  onClick={() => responder(i)}
-                  className={`text-left border rounded-lg px-4 py-3 text-sm transition-colors ${estilo}`}
-                >
-                  {alt}
-                </button>
-              )
-            })}
+        {esperandoRival ? (
+          <div className="bg-white shadow-sm rounded-2xl p-8 text-center">
+            <div className="w-14 h-14 rounded-full bg-brand-amber-50 flex items-center justify-center text-2xl mx-auto mb-3">⏳</div>
+            <p className="font-medium text-slate-800 mb-1">Le llevas ventaja a {rivalNombre}</p>
+            <p className="text-sm text-slate-500 mb-5">
+              Para que el duelo sea parejo, espera a que responda para seguir con la siguiente pregunta.
+            </p>
+            <button
+              onClick={actualizarEsperando}
+              disabled={actualizando}
+              className="bg-brand-blue-500 text-white text-sm rounded-full px-5 py-2 font-semibold disabled:opacity-50"
+            >
+              {actualizando ? 'Revisando...' : 'Actualizar'}
+            </button>
           </div>
+        ) : (
+          <div className="bg-white shadow-sm rounded-2xl p-5">
+            <p className="font-medium text-slate-800 mb-4">{pregunta?.enunciado}</p>
+
+            <div className="flex flex-col gap-2">
+              {pregunta?.alternativas?.map((alt, i) => {
+                const esLaCorrecta = i === pregunta.correcta
+                const esLaSeleccionada = i === seleccionada
+                let estilo = 'border-slate-200 hover:border-brand-blue-500/50 hover:bg-brand-blue-50'
+
+                if (seleccionada !== null) {
+                  if (esLaCorrecta) estilo = 'border-green-400 bg-green-50 text-green-700'
+                  else if (esLaSeleccionada) estilo = 'border-red-400 bg-red-50 text-red-700'
+                  else estilo = 'border-slate-200 opacity-60'
+                }
+
+                return (
+                  <button
+                    key={i}
+                    disabled={seleccionada !== null}
+                    onClick={() => responder(i)}
+                    className={`text-left border rounded-lg px-4 py-3 text-sm transition-colors ${estilo}`}
+                  >
+                    {alt}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
         </div>
       </main>
     </div>

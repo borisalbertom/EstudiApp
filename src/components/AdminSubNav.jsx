@@ -25,7 +25,7 @@ export default function AdminSubNav() {
           end={t.to === '/admin'}
           className={({ isActive }) =>
             `pb-2 border-b-2 -mb-px ${
-              isActive ? 'border-indigo-600 text-indigo-600 font-medium' : 'border-transparent text-slate-500 hover:text-slate-700'
+              isActive ? 'border-brand-blue-500 text-brand-blue-700 font-medium' : 'border-transparent text-slate-500 hover:text-slate-700'
             }`
           }
         >

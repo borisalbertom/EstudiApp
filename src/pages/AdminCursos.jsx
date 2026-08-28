@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import NavBar from '../components/NavBar'
@@ -7,13 +7,16 @@ import AdminSubNav from '../components/AdminSubNav'
 
 export default function AdminCursos() {
   const { perfil, orgsAdmin } = useAuth()
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const esSuperAdmin = perfil?.es_admin_plataforma || false
+  const esAdminReal = esSuperAdmin || orgsAdmin.length > 0
   const [cursos, setCursos] = useState([])
   const [organizaciones, setOrganizaciones] = useState([])
   const [cargando, setCargando] = useState(true)
   const [nombre, setNombre] = useState('')
   const [descripcion, setDescripcion] = useState('')
-  const [visibilidad, setVisibilidad] = useState(esSuperAdmin ? 'publico' : 'privado')
+  const [visibilidad, setVisibilidad] = useState('publico')
   const [organizacionId, setOrganizacionId] = useState('')
   const [tipoCurso, setTipoCurso] = useState('prueba') // 'certificacion' | 'prueba' | 'trivia'
   const [activarDuelosCert, setActivarDuelosCert] = useState(false)
@@ -26,11 +29,16 @@ export default function AdminCursos() {
   const [creando, setCreando] = useState(false)
   const [error, setError] = useState('')
   const [mostrarFormulario, setMostrarFormulario] = useState(false)
-  const [filtroTipo, setFiltroTipo] = useState('curso') // 'curso' | 'prueba' | 'trivia'
+  const [filtroTipo, setFiltroTipo] = useState(esAdminReal ? 'curso' : 'prueba') // 'curso' | 'prueba' | 'trivia'
 
   useEffect(() => {
     cargarCursos()
     cargarOrganizaciones()
+  }, [])
+
+  useEffect(() => {
+    const crear = searchParams.get('crear')
+    if (crear === 'prueba' || crear === 'trivia') abrirFormulario(crear)
   }, [])
 
   function abrirFormulario(tipo) {
@@ -43,7 +51,13 @@ export default function AdminCursos() {
       .from('cursos')
       .select('id, nombre, visibilidad, organizacion_id, fecha_fin, permite_individual, permite_practica_individual, organizaciones(nombre_empresa)')
       .order('creado_en', { ascending: false })
-    if (!esSuperAdmin) consulta = consulta.in('organizacion_id', orgsAdmin)
+    if (esSuperAdmin) {
+      // sin filtro: ve todo, incluyendo pruebas/trivias autogestionadas
+    } else if (orgsAdmin.length > 0) {
+      consulta = consulta.in('organizacion_id', orgsAdmin)
+    } else {
+      consulta = consulta.eq('creado_por', perfil.id)
+    }
     const { data } = await consulta
     setCursos(data || [])
     setCargando(false)
@@ -57,100 +71,121 @@ export default function AdminCursos() {
     if (!esSuperAdmin && data?.length === 1) setOrganizacionId(data[0].id)
   }
 
+  const esOrgAdmin = !esSuperAdmin && orgsAdmin.length > 0
+
   async function crearCurso(e) {
     e.preventDefault()
     if (!nombre.trim()) return
-    if (!esSuperAdmin && !organizacionId) {
+    if (esOrgAdmin && !organizacionId) {
       setError('Selecciona una organización.')
       return
     }
     setCreando(true)
     setError('')
 
-    const visibilidadFinal = esSuperAdmin ? visibilidad : 'privado'
+    const visibilidadFinal = esOrgAdmin ? 'privado' : visibilidad
 
-    const { error } = await supabase.from('cursos').insert({
-      nombre: nombre.trim(),
-      descripcion: descripcion.trim() || null,
-      visibilidad: visibilidadFinal,
-      organizacion_id: visibilidadFinal === 'privado' ? organizacionId || null : null,
-      creado_por: perfil.id,
-      permite_duelos: tipoCurso !== 'certificacion' || activarDuelosCert,
-      permite_individual: tipoCurso === 'certificacion',
-      permite_practica_individual: tipoCurso === 'prueba',
-      mostrar_ranking: mostrarRanking,
-      cantidad_preguntas: cantidadPreguntas,
-      porcentaje_certificacion: porcentajeCertificacion,
-      tiempo_por_pregunta: tiempoPorPregunta,
-      fecha_fin: fechaFin || null,
-      fecha_fin_duelos: tipoCurso === 'certificacion' && activarDuelosCert
-        ? (fechaFinDuelos && (!fechaFin || fechaFinDuelos <= fechaFin) ? fechaFinDuelos : fechaFin || null)
-        : null,
-    })
+    const { data, error } = await supabase
+      .from('cursos')
+      .insert({
+        nombre: nombre.trim(),
+        descripcion: descripcion.trim() || null,
+        visibilidad: visibilidadFinal,
+        organizacion_id: visibilidadFinal === 'privado' ? organizacionId || null : null,
+        creado_por: perfil.id,
+        permite_duelos: tipoCurso !== 'certificacion' || activarDuelosCert,
+        permite_individual: tipoCurso === 'certificacion',
+        permite_practica_individual: tipoCurso === 'prueba',
+        mostrar_ranking: mostrarRanking,
+        cantidad_preguntas: cantidadPreguntas,
+        porcentaje_certificacion: porcentajeCertificacion,
+        tiempo_por_pregunta: tiempoPorPregunta,
+        fecha_fin: fechaFin || null,
+        fecha_fin_duelos: tipoCurso === 'certificacion' && activarDuelosCert
+          ? (fechaFinDuelos && (!fechaFin || fechaFinDuelos <= fechaFin) ? fechaFinDuelos : fechaFin || null)
+          : null,
+      })
+      .select('id')
+      .single()
 
-    if (error) setError('No se pudo crear la actividad.')
-    else {
-      setNombre('')
-      setDescripcion('')
-      setVisibilidad(esSuperAdmin ? 'publico' : 'privado')
-      setOrganizacionId(!esSuperAdmin && organizaciones.length === 1 ? organizaciones[0].id : '')
-      setTipoCurso('prueba')
-      setActivarDuelosCert(false)
-      setFechaFinDuelos('')
-      setMostrarRanking(true)
-      setCantidadPreguntas(5)
-      setPorcentajeCertificacion(70)
-      setTiempoPorPregunta(0)
-      setFechaFin('')
-      setMostrarFormulario(false)
-      cargarCursos()
+    if (error || !data) {
+      setError('No se pudo crear la actividad.')
+      setCreando(false)
+      return
     }
-    setCreando(false)
-  }
 
-  if (!esSuperAdmin && orgsAdmin.length === 0) {
-    return (
-      <div className="min-h-screen bg-slate-50">
-        <NavBar />
-        <main className="max-w-3xl mx-auto px-4 py-6">
-          <p className="text-sm text-slate-500">No tienes permisos para ver esta página.</p>
-        </main>
-      </div>
-    )
+    if (!esAdminReal) {
+      await supabase
+        .from('inscripciones_curso')
+        .insert({ curso_id: data.id, usuario_id: perfil.id, estado: 'inscrito', visto: true })
+      navigate(`/admin/curso/${data.id}`)
+      return
+    }
+
+    setNombre('')
+    setDescripcion('')
+    setVisibilidad('publico')
+    setOrganizacionId(esOrgAdmin && organizaciones.length === 1 ? organizaciones[0].id : '')
+    setTipoCurso('prueba')
+    setActivarDuelosCert(false)
+    setFechaFinDuelos('')
+    setMostrarRanking(true)
+    setCantidadPreguntas(5)
+    setPorcentajeCertificacion(70)
+    setTiempoPorPregunta(0)
+    setFechaFin('')
+    setMostrarFormulario(false)
+    setCreando(false)
+    cargarCursos()
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-white">
       <NavBar />
-      <main className="max-w-3xl mx-auto px-4 py-6">
+      <main className="max-w-3xl mx-auto px-4 py-6 relative">
+        <div
+          className="absolute inset-x-0 top-0 h-28 pointer-events-none"
+          style={{
+            background:
+              'radial-gradient(80% 100% at 15% 0%, rgba(0,175,242,0.12), rgba(0,0,0,0) 70%), ' +
+              'radial-gradient(70% 100% at 100% 0%, rgba(255,187,0,0.12), rgba(0,0,0,0) 65%)',
+          }}
+        />
+
+        <div className="relative">
         <p className="text-lg font-medium text-slate-800 mb-4">Administrar actividades</p>
-        <AdminSubNav />
+        {esAdminReal && <AdminSubNav />}
 
         {!mostrarFormulario && (
-        <div className="grid grid-cols-3 gap-2 mb-6">
-          <button
-            onClick={() => abrirFormulario('certificacion')}
-            className="bg-white border border-dashed border-indigo-300 text-indigo-600 rounded-xl p-3 text-sm font-medium hover:bg-indigo-50"
-          >
-            + Crear curso
-          </button>
+        <div className={`grid gap-2 mb-6 ${esAdminReal ? 'grid-cols-3' : 'grid-cols-2'}`}>
+          {esAdminReal && (
+            <button
+              onClick={() => abrirFormulario('certificacion')}
+              className="bg-white shadow-sm rounded-2xl p-3 text-sm font-medium text-slate-800 hover:shadow-md flex flex-col items-center gap-1.5"
+            >
+              <span className="w-8 h-8 rounded-full bg-brand-blue-50 text-brand-blue-700 flex items-center justify-center text-sm">+</span>
+              Crear curso
+            </button>
+          )}
           <button
             onClick={() => abrirFormulario('prueba')}
-            className="bg-white border border-dashed border-indigo-300 text-indigo-600 rounded-xl p-3 text-sm font-medium hover:bg-indigo-50"
+            className="bg-white shadow-sm rounded-2xl p-3 text-sm font-medium text-slate-800 hover:shadow-md flex flex-col items-center gap-1.5"
           >
-            + Crear prueba
+            <span className="w-8 h-8 rounded-full bg-brand-blue-50 text-brand-blue-700 flex items-center justify-center text-sm">+</span>
+            Crear prueba
           </button>
           <button
             onClick={() => abrirFormulario('trivia')}
-            className="bg-white border border-dashed border-indigo-300 text-indigo-600 rounded-xl p-3 text-sm font-medium hover:bg-indigo-50"
+            className="bg-white shadow-sm rounded-2xl p-3 text-sm font-medium text-slate-800 hover:shadow-md flex flex-col items-center gap-1.5"
           >
-            + Crear trivia
+            <span className="w-8 h-8 rounded-full bg-brand-amber-50 text-brand-amber-700 flex items-center justify-center text-sm">+</span>
+            Crear trivia
           </button>
         </div>
         )}
 
         {mostrarFormulario && (
-        <form onSubmit={crearCurso} className="bg-white border border-slate-200 rounded-xl p-4 mb-6 flex flex-col gap-3">
+        <form onSubmit={crearCurso} className="bg-white shadow-sm rounded-2xl p-4 mb-6 flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-slate-700">
               {tipoCurso === 'certificacion' && 'Nuevo curso'}
@@ -177,7 +212,7 @@ export default function AdminCursos() {
             className="border border-slate-300 rounded-lg px-3 py-2 text-sm"
             rows={2}
           />
-          {esSuperAdmin && (
+          {!esOrgAdmin && (
             <div className="flex gap-4 text-sm text-slate-600">
               <label className="flex items-center gap-1.5">
                 <input
@@ -193,12 +228,18 @@ export default function AdminCursos() {
                   checked={visibilidad === 'privado'}
                   onChange={() => setVisibilidad('privado')}
                 />
-                Privado (empresa)
+                Privado {esSuperAdmin ? '(empresa)' : '(solo amigos que invites)'}
               </label>
             </div>
           )}
+          {!esSuperAdmin && !esOrgAdmin && visibilidad === 'privado' && (
+            <p className="text-xs text-slate-400 -mt-1.5">
+              No aparecerá en el catálogo público. Después de crearla, invita amigos desde la pestaña
+              "Invitar amigos".
+            </p>
+          )}
 
-          {(esSuperAdmin ? visibilidad === 'privado' : true) && (
+          {(esSuperAdmin ? visibilidad === 'privado' : esOrgAdmin) && (
             <select
               value={organizacionId}
               onChange={(e) => setOrganizacionId(e.target.value)}
@@ -264,7 +305,7 @@ export default function AdminCursos() {
                     type="checkbox"
                     checked={activarDuelosCert}
                     onChange={(e) => setActivarDuelosCert(e.target.checked)}
-                    className="accent-indigo-600"
+                    className="accent-brand-blue-500"
                   />
                   Permitir duelos durante un periodo (para practicar antes del examen)
                 </label>
@@ -290,7 +331,7 @@ export default function AdminCursos() {
                 type="checkbox"
                 checked={mostrarRanking}
                 onChange={(e) => setMostrarRanking(e.target.checked)}
-                className="accent-indigo-600"
+                className="accent-brand-blue-500"
               />
               Mostrar ranking
             </label>
@@ -301,7 +342,7 @@ export default function AdminCursos() {
           <button
             type="submit"
             disabled={creando}
-            className="bg-indigo-600 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50"
+            className="bg-brand-blue-500 text-white rounded-full py-2 text-sm font-semibold disabled:opacity-50"
           >
             {creando ? 'Creando...' : 'Crear actividad'}
           </button>
@@ -310,7 +351,7 @@ export default function AdminCursos() {
 
         <div className="flex items-center gap-4 border-b border-slate-200 mb-4 text-sm">
           {[
-            { id: 'curso', label: 'Cursos' },
+            ...(esAdminReal ? [{ id: 'curso', label: 'Cursos' }] : []),
             { id: 'prueba', label: 'Pruebas' },
             { id: 'trivia', label: 'Trivias' },
           ].map((f) => (
@@ -319,7 +360,7 @@ export default function AdminCursos() {
               onClick={() => setFiltroTipo(f.id)}
               className={`pb-2 border-b-2 -mb-px ${
                 filtroTipo === f.id
-                  ? 'border-indigo-600 text-indigo-600 font-medium'
+                  ? 'border-brand-blue-500 text-brand-blue-700 font-medium'
                   : 'border-transparent text-slate-500 hover:text-slate-700'
               }`}
             >
@@ -343,7 +384,7 @@ export default function AdminCursos() {
               <Link
                 key={c.id}
                 to={`/admin/curso/${c.id}`}
-                className="bg-white border border-slate-200 rounded-xl p-4 flex items-center justify-between hover:border-indigo-300"
+                className="bg-white shadow-sm rounded-2xl p-4 flex items-center justify-between hover:shadow-md"
               >
                 <div>
                   <p className="font-medium text-slate-800">{c.nombre}</p>
@@ -353,8 +394,8 @@ export default function AdminCursos() {
                   </p>
                 </div>
                 <span
-                  className={`text-xs px-2 py-1 rounded-md shrink-0 ${
-                    vencido ? 'bg-red-50 text-red-600' : 'bg-indigo-50 text-indigo-600'
+                  className={`text-xs px-2.5 py-1 rounded-full font-semibold shrink-0 ${
+                    vencido ? 'bg-red-50 text-red-600' : 'bg-white text-brand-blue-700 border-[1.5px] border-brand-blue-500'
                   }`}
                 >
                   {vencido ? 'Vencido' : 'Gestionar'}
@@ -362,6 +403,7 @@ export default function AdminCursos() {
               </Link>
             )
           })}
+        </div>
         </div>
       </main>
     </div>

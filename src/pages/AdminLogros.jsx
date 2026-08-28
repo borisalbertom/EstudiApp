@@ -96,7 +96,7 @@ export default function AdminLogros() {
 
   if (!perfil?.es_admin_plataforma) {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen bg-white">
         <NavBar />
         <main className="max-w-3xl mx-auto px-4 py-6">
           <p className="text-sm text-slate-500">No tienes permisos para ver esta página.</p>
@@ -108,7 +108,7 @@ export default function AdminLogros() {
   const tipoInfo = TIPOS.find((t) => t.value === tipo)
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-white">
       <NavBar />
       <main className="max-w-3xl mx-auto px-4 py-6">
         <p className="text-lg font-medium text-slate-800 mb-4">Administrar logros</p>
@@ -186,7 +186,7 @@ export default function AdminLogros() {
           <button
             type="submit"
             disabled={creando}
-            className="bg-indigo-600 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50"
+            className="bg-brand-blue-500 text-white rounded-full py-2 text-sm font-semibold disabled:opacity-50"
           >
             {creando ? 'Creando...' : 'Crear logro'}
           </button>

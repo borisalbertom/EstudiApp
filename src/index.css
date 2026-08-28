@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+@theme {
+  --color-brand-blue-50: #e5f6fe;
+  --color-brand-blue-500: #00aff2;
+  --color-brand-blue-700: #0090c7;
+  --color-brand-amber-50: #fff6e0;
+  --color-brand-amber-500: #ffbb00;
+  --color-brand-amber-700: #92620a;
+}
+
 body {
   margin: 0;
   font-family: system-ui, -apple-system, sans-serif;

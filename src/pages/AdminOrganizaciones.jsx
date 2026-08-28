@@ -104,7 +104,7 @@ export default function AdminOrganizaciones() {
 
   if (!perfil?.es_admin_plataforma) {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen bg-white">
         <NavBar />
         <main className="max-w-3xl mx-auto px-4 py-6">
           <p className="text-sm text-slate-500">No tienes permisos para ver esta página.</p>
@@ -114,7 +114,7 @@ export default function AdminOrganizaciones() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-white">
       <NavBar />
       <main className="max-w-3xl mx-auto px-4 py-6">
         <p className="text-lg font-medium text-slate-800 mb-4">Administrar organizaciones</p>
@@ -155,7 +155,7 @@ export default function AdminOrganizaciones() {
               <button
                 onClick={() => alternarSuperAdmin(u)}
                 className={`text-xs px-2 py-1 rounded-md shrink-0 ${
-                  u.es_admin_plataforma ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-600'
+                  u.es_admin_plataforma ? 'bg-brand-blue-500 text-white' : 'bg-slate-200 text-slate-600'
                 }`}
               >
                 {u.es_admin_plataforma ? 'Super admin' : 'Hacer super admin'}
@@ -205,7 +205,7 @@ export default function AdminOrganizaciones() {
           <button
             type="submit"
             disabled={creando}
-            className="bg-indigo-600 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50"
+            className="bg-brand-blue-500 text-white rounded-full py-2 text-sm font-semibold disabled:opacity-50"
           >
             {creando ? 'Creando...' : 'Crear organización'}
           </button>
@@ -229,7 +229,7 @@ export default function AdminOrganizaciones() {
                     {o.dominio_email ? `@${o.dominio_email}` : 'Sin dominio configurado'}
                   </p>
                 </div>
-                <span className="text-xs text-indigo-600 shrink-0">
+                <span className="text-xs text-brand-blue-700 shrink-0">
                   {orgExpandida === o.id ? 'Ocultar miembros' : 'Ver miembros'}
                 </span>
               </button>
@@ -248,7 +248,7 @@ export default function AdminOrganizaciones() {
                       <button
                         onClick={() => alternarRolMiembro(m, o.id)}
                         className={`text-xs px-2 py-1 rounded-md shrink-0 ${
-                          m.rol === 'admin_curso' ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-600'
+                          m.rol === 'admin_curso' ? 'bg-brand-blue-500 text-white' : 'bg-slate-200 text-slate-600'
                         }`}
                       >
                         {m.rol === 'admin_curso' ? 'Admin de cursos' : 'Hacer admin de cursos'}

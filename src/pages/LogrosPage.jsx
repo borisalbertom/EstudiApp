@@ -27,7 +27,7 @@ export default function LogrosPage() {
 
   if (cargando) {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen bg-white">
         <NavBar />
         <main className="max-w-3xl mx-auto px-4 py-6 text-sm text-slate-400">Cargando logros...</main>
       </div>
@@ -39,10 +39,20 @@ export default function LogrosPage() {
   const totalObtenidos = logros.filter((l) => obtenidos.has(l.id)).length
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-white">
       <NavBar />
-      <main className="max-w-3xl mx-auto px-4 py-6">
-        <Link to="/perfil" className="text-xs text-slate-400 hover:text-indigo-600">← Volver a perfil</Link>
+      <main className="max-w-3xl mx-auto px-4 py-6 relative">
+        <div
+          className="absolute inset-x-0 top-0 h-28 pointer-events-none"
+          style={{
+            background:
+              'radial-gradient(80% 100% at 15% 0%, rgba(0,175,242,0.12), rgba(0,0,0,0) 70%), ' +
+              'radial-gradient(70% 100% at 100% 0%, rgba(255,187,0,0.12), rgba(0,0,0,0) 65%)',
+          }}
+        />
+
+        <div className="relative">
+        <Link to="/perfil" className="text-xs text-slate-400 hover:text-brand-blue-700">← Volver a perfil</Link>
         <h1 className="text-xl font-semibold text-slate-800 mt-2 mb-1">Logros</h1>
         <p className="text-sm text-slate-500 mb-6">{totalObtenidos} de {logros.length} desbloqueados</p>
 
@@ -63,6 +73,7 @@ export default function LogrosPage() {
             </div>
           </>
         )}
+        </div>
       </main>
     </div>
   )
@@ -71,8 +82,8 @@ export default function LogrosPage() {
 function TarjetaLogro({ logro, obtenido, mostrarCurso }) {
   return (
     <div
-      className={`border rounded-xl p-3 flex items-center gap-3 ${
-        obtenido ? 'bg-white border-indigo-200' : 'bg-slate-100 border-slate-200 opacity-60'
+      className={`rounded-2xl p-3 flex items-center gap-3 ${
+        obtenido ? 'bg-white shadow-sm' : 'bg-slate-100 opacity-60'
       }`}
     >
       <span className="text-2xl shrink-0">{logro.icono}</span>
@@ -80,7 +91,7 @@ function TarjetaLogro({ logro, obtenido, mostrarCurso }) {
         <p className={`text-sm font-medium ${obtenido ? 'text-slate-800' : 'text-slate-500'}`}>{logro.nombre}</p>
         <p className="text-xs text-slate-400">{logro.descripcion}</p>
         {mostrarCurso && logro.cursos?.nombre && (
-          <p className="text-[10px] text-indigo-500 mt-0.5">{logro.cursos.nombre}</p>
+          <p className="text-[10px] text-brand-blue-700 mt-0.5">{logro.cursos.nombre}</p>
         )}
       </div>
     </div>

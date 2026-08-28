@@ -36,6 +36,7 @@ export default function AdminCurso() {
   const [temasGuardados, setTemasGuardados] = useState({})
   const [confirmandoBorrarTema, setConfirmandoBorrarTema] = useState(null)
   const [confirmandoBorrarMaterial, setConfirmandoBorrarMaterial] = useState(null)
+  const [confirmandoGuardarConfig, setConfirmandoGuardarConfig] = useState(false)
 
   useEffect(() => {
     cargarCurso()
@@ -57,7 +58,9 @@ export default function AdminCurso() {
       setConfirmandoSalida(true)
       return
     }
-    navigate('/admin')
+    const esAdmin = esSuperAdmin || (curso?.organizacion_id && orgsAdmin.includes(curso.organizacion_id))
+    if (esAdmin) navigate('/admin')
+    else navigate(curso?.permite_practica_individual ? '/pruebas' : '/trivias')
   }
 
   async function cargarCurso() {
@@ -66,7 +69,7 @@ export default function AdminCurso() {
     const [{ data: cursoData }, { data: temasData }] = await Promise.all([
       supabase
         .from('cursos')
-        .select('id, nombre, organizacion_id, permite_duelos, permite_individual, permite_practica_individual, mostrar_ranking, cantidad_preguntas, porcentaje_certificacion, tiempo_por_pregunta, fecha_fin, fecha_fin_duelos')
+        .select('id, nombre, organizacion_id, creado_por, permite_duelos, permite_individual, permite_practica_individual, mostrar_ranking, cantidad_preguntas, porcentaje_certificacion, tiempo_por_pregunta, fecha_fin, fecha_fin_duelos')
         .eq('id', id)
         .single(),
       supabase.from('temas').select('id, nombre, orden, tiempo_por_pregunta').eq('curso_id', id).order('orden', { ascending: true }),
@@ -77,6 +80,7 @@ export default function AdminCurso() {
     setTemasGuardados(Object.fromEntries((temasData || []).map((t) => [t.id, t.tiempo_por_pregunta])))
     setCargando(false)
     if (cursoData?.organizacion_id) cargarMiembros(cursoData.organizacion_id)
+    else if (cursoData?.creado_por === perfil?.id && !cursoData?.permite_individual) cargarAmigosParaInvitar()
 
     const temaIds = (temasData || []).map((t) => t.id)
     if (temaIds.length > 0) {
@@ -140,6 +144,30 @@ export default function AdminCurso() {
     setInscripcionesPorUsuario(agrupadas)
   }
 
+  async function cargarAmigosParaInvitar() {
+    const [{ data: amistades }, { data: inscripcionesData }] = await Promise.all([
+      supabase
+        .from('amistades')
+        .select('usuario_a, usuario_b, perfil_a:usuario_a(nombre, email), perfil_b:usuario_b(nombre, email)')
+        .eq('estado', 'aceptada')
+        .or(`usuario_a.eq.${perfil.id},usuario_b.eq.${perfil.id}`),
+      supabase.from('inscripciones_curso').select('id, usuario_id, estado').eq('curso_id', id),
+    ])
+    const lista = (amistades || []).map((a) => {
+      const esA = a.usuario_a === perfil.id
+      return { usuario_id: esA ? a.usuario_b : a.usuario_a, perfiles: esA ? a.perfil_b : a.perfil_a }
+    })
+    setMiembros(lista)
+    const agrupadas = {}
+    for (const i of inscripcionesData || []) agrupadas[i.usuario_id] = i
+    setInscripcionesPorUsuario(agrupadas)
+  }
+
+  function recargarAsignables() {
+    if (curso?.organizacion_id) cargarMiembros(curso.organizacion_id)
+    else cargarAmigosParaInvitar()
+  }
+
   function alternarSeleccionado(usuarioId) {
     setSeleccionados((prev) =>
       prev.includes(usuarioId) ? prev.filter((u) => u !== usuarioId) : [...prev, usuarioId]
@@ -159,12 +187,12 @@ export default function AdminCurso() {
     await supabase.from('inscripciones_curso').insert(filas)
     setSeleccionados([])
     setAsignando(false)
-    cargarMiembros(curso.organizacion_id)
+    recargarAsignables()
   }
 
   async function quitarAcceso(inscripcionId) {
     await supabase.from('inscripciones_curso').delete().eq('id', inscripcionId)
-    cargarMiembros(curso.organizacion_id)
+    recargarAsignables()
   }
 
   async function crearTema(e) {
@@ -314,8 +342,7 @@ export default function AdminCurso() {
   }
 
   async function guardarConfiguracion() {
-    const confirmado = window.confirm('¿Guardar los cambios de configuración?')
-    if (!confirmado) return
+    setConfirmandoGuardarConfig(false)
     setGuardandoConfig(true)
     await supabase
       .from('cursos')
@@ -349,18 +376,20 @@ export default function AdminCurso() {
 
   if (cargando) {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen bg-white">
         <NavBar />
         <main className="max-w-3xl mx-auto px-4 py-6 text-sm text-slate-400">Cargando...</main>
       </div>
     )
   }
 
-  const tieneAcceso = esSuperAdmin || (curso?.organizacion_id && orgsAdmin.includes(curso.organizacion_id))
+  const esAdminReal = esSuperAdmin || (curso?.organizacion_id && orgsAdmin.includes(curso.organizacion_id))
+  const esCreadorPropio = !esAdminReal && curso?.creado_por === perfil?.id && !curso?.organizacion_id && !curso?.permite_individual
+  const tieneAcceso = esAdminReal || esCreadorPropio
 
   if (!tieneAcceso) {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen bg-white">
         <NavBar />
         <main className="max-w-3xl mx-auto px-4 py-6">
           <p className="text-sm text-slate-500">No tienes permisos para ver esta página.</p>
@@ -370,20 +399,32 @@ export default function AdminCurso() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-white">
       <NavBar />
-      <main className="max-w-3xl mx-auto px-4 py-6">
-        <button onClick={volverACursos} className="text-xs text-slate-400 hover:text-indigo-600">← Volver a actividades</button>
+      <main className="max-w-3xl mx-auto px-4 py-6 relative">
+        <div
+          className="absolute inset-x-0 top-0 h-28 pointer-events-none"
+          style={{
+            background:
+              'radial-gradient(80% 100% at 15% 0%, rgba(0,175,242,0.12), rgba(0,0,0,0) 70%), ' +
+              'radial-gradient(70% 100% at 100% 0%, rgba(255,187,0,0.12), rgba(0,0,0,0) 65%)',
+          }}
+        />
+
+        <div className="relative">
+        <button onClick={volverACursos} className="text-xs text-slate-400 hover:text-brand-blue-700">
+          ← Volver a {esAdminReal ? 'actividades' : curso?.permite_practica_individual ? 'pruebas' : 'trivias'}
+        </button>
         <h1 className="text-xl font-semibold text-slate-800 mt-2 mb-4">{curso?.nombre}</h1>
 
         {solicitudesPlazo.length > 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
-            <p className="text-sm font-medium text-amber-800 mb-2">
+          <div className="bg-white shadow-sm border-[1.5px] border-brand-amber-500 rounded-2xl p-4 mb-6">
+            <p className="text-sm font-medium text-brand-amber-700 mb-2">
               ⏳ Solicitudes de más plazo ({solicitudesPlazo.length})
             </p>
             <div className="flex flex-col gap-2">
               {solicitudesPlazo.map((s) => (
-                <div key={s.id} className="flex items-center justify-between bg-white rounded-lg px-3 py-2">
+                <div key={s.id} className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2">
                   <div>
                     <p className="text-sm text-slate-700">{s.perfiles?.nombre}</p>
                     <p className="text-xs text-slate-400">{s.perfiles?.email}</p>
@@ -391,13 +432,13 @@ export default function AdminCurso() {
                   <div className="flex items-center gap-2 shrink-0">
                     <Link
                       to={`/curso/${id}`}
-                      className="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded-md"
+                      className="text-xs bg-white text-brand-blue-700 border-[1.5px] border-brand-blue-500 px-2.5 py-1 rounded-full font-semibold"
                     >
-                      Ir a curso
+                      Ir a la actividad
                     </Link>
                     <button
                       onClick={() => resolverSolicitud(s.id)}
-                      className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-md"
+                      className="text-xs text-slate-400 hover:text-slate-700 border border-slate-200 px-2.5 py-1 rounded-full"
                     >
                       Marcar como resuelta
                     </button>
@@ -405,8 +446,8 @@ export default function AdminCurso() {
                 </div>
               ))}
             </div>
-            <p className="text-xs text-amber-700 mt-2">
-              Cambia y guarda la fecha límite en Configuración para reactivar el curso antes de marcar como resuelta.
+            <p className="text-xs text-brand-amber-700/80 mt-2">
+              Cambia y guarda la fecha límite en Configuración para reactivar la actividad antes de marcar como resuelta.
             </p>
           </div>
         )}
@@ -414,17 +455,21 @@ export default function AdminCurso() {
         <nav className="flex items-center gap-4 border-b border-slate-200 mb-6 text-sm">
           {[
             { id: 'configuracion', label: 'Configuración' },
-            { id: 'temas', label: 'Contenido del curso' },
+            { id: 'temas', label: 'Contenido' },
             ...(curso?.permite_individual ? [{ id: 'material', label: 'Material de estudio' }] : []),
             { id: 'preguntas', label: 'Preguntas' },
-            ...(curso?.organizacion_id ? [{ id: 'asignar', label: 'Asignar' }] : []),
+            ...(curso?.organizacion_id
+              ? [{ id: 'asignar', label: 'Asignar' }]
+              : esCreadorPropio
+                ? [{ id: 'asignar', label: 'Invitar amigos' }]
+                : []),
           ].map((s) => (
             <button
               key={s.id}
               onClick={() => setSeccion(s.id)}
               className={`pb-2 border-b-2 -mb-px ${
                 seccion === s.id
-                  ? 'border-indigo-600 text-indigo-600 font-medium'
+                  ? 'border-brand-blue-500 text-brand-blue-700 font-medium'
                   : 'border-transparent text-slate-500 hover:text-slate-700'
               }`}
             >
@@ -434,16 +479,16 @@ export default function AdminCurso() {
         </nav>
 
         {seccion === 'configuracion' && (
-        <div className="bg-white border border-slate-200 rounded-xl p-4 mb-6 flex flex-col gap-2">
-          <p className="text-sm font-medium text-slate-700 mb-1">Configuración del curso</p>
+        <div className="bg-white shadow-sm rounded-2xl p-4 mb-6 flex flex-col gap-2">
+          <p className="text-sm font-medium text-slate-700 mb-1">Configuración</p>
           <p className="text-xs text-slate-500 mb-2">
-            Acá defines los ajustes generales del curso: cuántas preguntas se hacen por intento, el tiempo
-            por pregunta, la fecha límite del curso, si el curso es de Retos o Certificación, y si se
+            Acá defines los ajustes generales: cuántas preguntas se hacen por intento, el tiempo
+            por pregunta, la fecha límite, si es Certificación, Prueba o Trivia, y si se
             muestra el ranking.
           </p>
 
           <label className="text-xs text-slate-500 border-b border-slate-100 pb-3 mb-1">
-            Tipo de curso
+            Tipo de actividad
             <select
               value={
                 curso?.permite_individual
@@ -455,7 +500,7 @@ export default function AdminCurso() {
               onChange={(e) => actualizarTipo(e.target.value)}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1"
             >
-              <option value="certificacion">Certificación (evaluación individual)</option>
+              {esAdminReal && <option value="certificacion">Certificación (evaluación individual)</option>}
               <option value="prueba">Pruebas (duelos + práctica libre)</option>
               <option value="trivia">Trivias (solo duelos, sin práctica)</option>
             </select>
@@ -478,7 +523,7 @@ export default function AdminCurso() {
                   type="checkbox"
                   checked={curso?.permite_duelos || false}
                   onChange={(e) => actualizarConfig('permite_duelos', e.target.checked)}
-                  className="accent-indigo-600"
+                  className="accent-brand-blue-500"
                 />
                 Permitir duelos durante un periodo (para practicar antes del examen)
               </label>
@@ -522,13 +567,13 @@ export default function AdminCurso() {
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1"
             />
             <span className="block text-slate-400 mt-0.5 font-normal">
-              Valor por defecto para todo el curso. Cada contenido puede definir su propio tiempo
+              Valor por defecto para toda la actividad. Cada contenido puede definir su propio tiempo
               más abajo, que tiene prioridad sobre este.
             </span>
           </label>
 
           <label className="text-xs text-slate-500 mb-1">
-            Fecha límite del curso (vacío = sin fecha de término)
+            Fecha límite (vacío = sin fecha de término)
             <input
               type="date"
               value={curso?.fecha_fin ?? ''}
@@ -538,7 +583,7 @@ export default function AdminCurso() {
           </label>
           {curso?.fecha_fin && curso.fecha_fin < new Date().toISOString().slice(0, 10) && (
             <p className="text-xs text-red-500 -mt-1">
-              ⚠️ Este curso ya venció y está oculto para los usuarios. Cambia o borra la fecha para reactivarlo.
+              ⚠️ Esta actividad ya venció y está oculta para los usuarios. Cambia o borra la fecha para reactivarla.
             </p>
           )}
 
@@ -547,39 +592,61 @@ export default function AdminCurso() {
               type="checkbox"
               checked={curso?.mostrar_ranking || false}
               onChange={(e) => actualizarConfig('mostrar_ranking', e.target.checked)}
-              className="accent-indigo-600"
+              className="accent-brand-blue-500"
             />
             Mostrar ranking
           </label>
 
           <div className="flex items-center gap-3 border-t border-slate-100 pt-3 mt-1">
-            <button
-              onClick={guardarConfiguracion}
-              disabled={!configSucia || guardandoConfig}
-              className="bg-indigo-600 text-white rounded-lg py-2 px-4 text-sm font-medium disabled:opacity-50"
-            >
-              {guardandoConfig ? 'Guardando...' : 'Guardar cambios'}
-            </button>
-            {configSucia && (
-              <button
-                onClick={cancelarCambios}
-                disabled={guardandoConfig}
-                className="text-sm text-slate-500 hover:text-red-500 disabled:opacity-50"
-              >
-                Cancelar
-              </button>
+            {confirmandoGuardarConfig ? (
+              <>
+                <span className="text-sm text-slate-600">¿Guardar los cambios?</span>
+                <button
+                  onClick={guardarConfiguracion}
+                  disabled={guardandoConfig}
+                  className="bg-brand-blue-500 text-white rounded-full py-2 px-4 text-sm font-semibold disabled:opacity-50"
+                >
+                  {guardandoConfig ? 'Guardando...' : 'Sí, guardar'}
+                </button>
+                <button
+                  onClick={() => setConfirmandoGuardarConfig(false)}
+                  disabled={guardandoConfig}
+                  className="text-sm text-slate-500 hover:text-red-500 disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => setConfirmandoGuardarConfig(true)}
+                  disabled={!configSucia || guardandoConfig}
+                  className="bg-brand-blue-500 text-white rounded-full py-2 px-4 text-sm font-semibold disabled:opacity-50"
+                >
+                  Guardar cambios
+                </button>
+                {configSucia && (
+                  <button
+                    onClick={cancelarCambios}
+                    disabled={guardandoConfig}
+                    className="text-sm text-slate-500 hover:text-red-500 disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                )}
+                {configSucia && <p className="text-xs text-amber-600 ml-auto">Tienes cambios sin guardar.</p>}
+              </>
             )}
-            {configSucia && <p className="text-xs text-amber-600 ml-auto">Tienes cambios sin guardar.</p>}
           </div>
         </div>
         )}
 
         {seccion === 'temas' && (
         <>
-        <div className="bg-white border border-slate-200 rounded-xl p-4 mb-6">
-          <p className="text-sm font-medium text-slate-700 mb-1">Contenido del curso</p>
+        <div className="bg-white shadow-sm rounded-2xl p-4 mb-6">
+          <p className="text-sm font-medium text-slate-700 mb-1">Contenido</p>
           <p className="text-xs text-slate-500 mb-3">
-            Cada contenido agrupa sus propias preguntas — crea varios si quieres separar el curso por
+            Cada contenido agrupa sus propias preguntas — crea varios si quieres separarlo por
             módulos o capítulos, o uno solo si no necesitas dividirlo. Desde acá puedes renombrarlos,
             borrarlos y definir un tiempo por pregunta específico para cada uno.
           </p>
@@ -595,7 +662,7 @@ export default function AdminCurso() {
             <button
               type="submit"
               disabled={creandoTema}
-              className="bg-indigo-600 text-white text-sm px-4 rounded-lg disabled:opacity-50"
+              className="bg-brand-blue-500 text-white text-sm px-4 rounded-full font-semibold disabled:opacity-50"
             >
               {creandoTema ? 'Creando...' : 'Agregar contenido'}
             </button>
@@ -606,14 +673,14 @@ export default function AdminCurso() {
 
         <div className="flex flex-col gap-3">
           {temas.map((t, i) => (
-            <div key={t.id} className="bg-white border border-slate-200 rounded-xl p-4">
+            <div key={t.id} className="bg-white shadow-sm rounded-2xl p-4">
               <div className="flex items-center justify-between gap-2">
                 {temaEditando !== t.id && (
                   <div className="flex flex-col shrink-0">
                     <button
                       onClick={() => moverTema(i, -1)}
                       disabled={i === 0}
-                      className="text-slate-400 hover:text-indigo-600 disabled:opacity-30 disabled:hover:text-slate-400 leading-none"
+                      className="text-slate-400 hover:text-brand-blue-700 disabled:opacity-30 disabled:hover:text-slate-400 leading-none"
                       title="Subir"
                     >
                       ▲
@@ -621,7 +688,7 @@ export default function AdminCurso() {
                     <button
                       onClick={() => moverTema(i, 1)}
                       disabled={i === temas.length - 1}
-                      className="text-slate-400 hover:text-indigo-600 disabled:opacity-30 disabled:hover:text-slate-400 leading-none"
+                      className="text-slate-400 hover:text-brand-blue-700 disabled:opacity-30 disabled:hover:text-slate-400 leading-none"
                       title="Bajar"
                     >
                       ▼
@@ -637,7 +704,7 @@ export default function AdminCurso() {
                       className="flex-1 border border-slate-300 rounded-lg px-2 py-1 text-sm"
                       autoFocus
                     />
-                    <button onClick={() => guardarNombreTema(t.id)} className="text-xs text-indigo-600">Guardar</button>
+                    <button onClick={() => guardarNombreTema(t.id)} className="text-xs text-brand-blue-700">Guardar</button>
                     <button onClick={() => setTemaEditando(null)} className="text-xs text-slate-400">Cancelar</button>
                   </div>
                 ) : (
@@ -688,7 +755,7 @@ export default function AdminCurso() {
                       className="w-40 border border-slate-200 rounded-md px-2 py-0.5 text-slate-600"
                     />
                     {t.tiempo_por_pregunta !== temasGuardados[t.id] && (
-                      <button onClick={() => guardarTiempoTema(t.id)} className="text-xs text-indigo-600 font-medium">
+                      <button onClick={() => guardarTiempoTema(t.id)} className="text-xs text-brand-blue-700 font-medium">
                         Guardar
                       </button>
                     )}
@@ -707,7 +774,7 @@ export default function AdminCurso() {
 
         {seccion === 'material' && (
         <div className="flex flex-col gap-3">
-          <div className="bg-white border border-slate-200 rounded-xl p-4">
+          <div className="bg-white shadow-sm rounded-2xl p-4">
             <p className="text-sm font-medium text-slate-700 mb-1">Material de estudio</p>
             <p className="text-xs text-slate-500">
               Sube acá los archivos (PDF, documentos, etc.) que quieras poner a disposición de los
@@ -715,12 +782,12 @@ export default function AdminCurso() {
             </p>
           </div>
           {temas.length === 0 && (
-            <div className="bg-white border border-slate-200 rounded-xl p-4 text-sm text-slate-500">
-              Este curso todavía no tiene contenido cargado.
+            <div className="bg-white shadow-sm rounded-2xl p-4 text-sm text-slate-500">
+              Esta actividad todavía no tiene contenido cargado.
             </div>
           )}
           {temas.map((t) => (
-            <div key={t.id} className="bg-white border border-slate-200 rounded-xl p-4">
+            <div key={t.id} className="bg-white shadow-sm rounded-2xl p-4">
               <p className="font-medium text-slate-800 mb-2">{t.nombre}</p>
               <div className="flex flex-col gap-2 mb-2">
                 {(materialesPorTema[t.id] || []).length === 0 && (
@@ -732,7 +799,7 @@ export default function AdminCurso() {
                       href={m.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-sm text-indigo-600 hover:underline truncate"
+                      className="text-sm text-brand-blue-700 hover:underline truncate"
                     >
                       {i + 1}. {iconoMaterial(m.nombre_archivo)} {m.nombre_archivo}
                     </a>
@@ -756,7 +823,7 @@ export default function AdminCurso() {
                   </div>
                 ))}
               </div>
-              <label className="text-xs bg-slate-100 text-slate-600 px-3 py-1.5 rounded-md cursor-pointer inline-block">
+              <label className="text-xs bg-white text-brand-blue-700 border-[1.5px] border-brand-blue-500 px-3 py-1.5 rounded-full font-semibold cursor-pointer inline-block">
                 {subiendoMaterial ? 'Subiendo...' : '+ Subir archivo'}
                 <input
                   type="file"
@@ -772,7 +839,7 @@ export default function AdminCurso() {
 
         {seccion === 'preguntas' && (
         <div className="flex flex-col gap-3">
-          <div className="bg-white border border-slate-200 rounded-xl p-4">
+          <div className="bg-white shadow-sm rounded-2xl p-4">
             <p className="text-sm font-medium text-slate-700 mb-1">Preguntas</p>
             <p className="text-xs text-slate-500">
               Acá creas y editas las preguntas de opción múltiple de cada contenido, defines su
@@ -780,12 +847,12 @@ export default function AdminCurso() {
             </p>
           </div>
           {temas.length === 0 && (
-            <div className="bg-white border border-slate-200 rounded-xl p-4 text-sm text-slate-500">
-              Este curso todavía no tiene contenido cargado.
+            <div className="bg-white shadow-sm rounded-2xl p-4 text-sm text-slate-500">
+              Esta actividad todavía no tiene contenido cargado.
             </div>
           )}
           {temas.map((t) => (
-            <div key={t.id} className="bg-white border border-slate-200 rounded-xl p-4">
+            <div key={t.id} className="bg-white shadow-sm rounded-2xl p-4">
               <p className="font-medium text-slate-800">{t.nombre}</p>
               <PreguntasTema
                 temaId={t.id}
@@ -799,16 +866,35 @@ export default function AdminCurso() {
         )}
 
         {seccion === 'asignar' && (
-        <div className="bg-white border border-slate-200 rounded-xl p-4">
-          <p className="text-sm font-medium text-slate-700 mb-1">Asignar curso a miembros de la organización</p>
-          <p className="text-xs text-slate-500 mb-3">
-            Selecciona a los miembros de tu organización que quieres que tengan acceso a este curso
-            privado. Quedan inscritos de inmediato y les aparece en su lista de cursos; también puedes
-            quitarles el acceso cuando quieras.
-          </p>
+        <div className="bg-white shadow-sm rounded-2xl p-4">
+          {curso?.organizacion_id ? (
+            <>
+              <p className="text-sm font-medium text-slate-700 mb-1">Asignar actividad a miembros de la organización</p>
+              <p className="text-xs text-slate-500 mb-3">
+                Selecciona a los miembros de tu organización que quieres que tengan acceso a esta actividad
+                privada. Quedan inscritos de inmediato y les aparece en su lista de actividades; también puedes
+                quitarles el acceso cuando quieras.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-sm font-medium text-slate-700 mb-1">Invitar amigos</p>
+              <p className="text-xs text-slate-500 mb-3">
+                Selecciona a los amigos que quieres invitar a esta actividad privada. Quedan inscritos
+                de inmediato y les aparece en su lista de actividades; también puedes quitarles el acceso
+                cuando quieras.
+              </p>
+            </>
+          )}
 
-          {miembros.length === 0 && (
+          {miembros.length === 0 && curso?.organizacion_id && (
             <p className="text-sm text-slate-500">Esta organización todavía no tiene miembros.</p>
+          )}
+          {miembros.length === 0 && !curso?.organizacion_id && (
+            <p className="text-sm text-slate-500">
+              Todavía no tienes amigos agregados. Ve a{' '}
+              <Link to="/amigos" className="text-brand-blue-700">Amigos</Link>.
+            </p>
           )}
 
           <div className="flex flex-col gap-1">
@@ -822,7 +908,7 @@ export default function AdminCurso() {
                         type="checkbox"
                         checked={seleccionados.includes(m.usuario_id)}
                         onChange={() => alternarSeleccionado(m.usuario_id)}
-                        className="accent-indigo-600"
+                        className="accent-brand-blue-500"
                       />
                     )}
                     <span>
@@ -852,13 +938,14 @@ export default function AdminCurso() {
             <button
               onClick={asignarSeleccionados}
               disabled={seleccionados.length === 0 || asignando}
-              className="mt-4 bg-indigo-600 text-white rounded-lg py-2 px-4 text-sm font-medium disabled:opacity-50"
+              className="mt-4 bg-brand-blue-500 text-white rounded-full py-2 px-4 text-sm font-semibold disabled:opacity-50"
             >
               {asignando ? 'Asignando...' : `Asignar a ${seleccionados.length} seleccionado(s)`}
             </button>
           )}
         </div>
         )}
+        </div>
       </main>
 
       {confirmandoSalida && (
@@ -974,7 +1061,7 @@ function PreguntasTema({ temaId, preguntas, onCambio, onAlternarActiva }) {
         <button
           type="submit"
           disabled={creando}
-          className="bg-indigo-600 text-white text-sm rounded-lg py-2 disabled:opacity-50"
+          className="bg-brand-blue-500 text-white text-sm rounded-full py-2 font-semibold disabled:opacity-50"
         >
           {creando ? 'Creando...' : 'Agregar pregunta'}
         </button>
@@ -1061,7 +1148,7 @@ function PreguntaEdicion({ pregunta, onCancelar, onGuardado }) {
   }
 
   return (
-    <div className="border border-indigo-200 rounded-lg p-3 bg-indigo-50/40 flex flex-col gap-2">
+    <div className="border border-brand-blue-500/30 rounded-lg p-3 bg-brand-blue-50 flex flex-col gap-2">
       <input
         type="text"
         value={enunciado}
@@ -1100,7 +1187,7 @@ function PreguntaEdicion({ pregunta, onCancelar, onGuardado }) {
         <button
           onClick={guardar}
           disabled={guardando}
-          className="flex-1 bg-indigo-600 text-white text-sm rounded-lg py-2 disabled:opacity-50"
+          className="flex-1 bg-brand-blue-500 text-white text-sm rounded-full py-2 font-semibold disabled:opacity-50"
         >
           {guardando ? 'Guardando...' : 'Guardar cambios'}
         </button>

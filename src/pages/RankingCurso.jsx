@@ -63,7 +63,7 @@ export default function RankingCurso() {
 
   if (cargando) {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen bg-white">
         <NavBar />
         <main className="max-w-3xl mx-auto px-4 py-6 text-sm text-slate-400">Cargando ranking...</main>
       </div>
@@ -71,17 +71,27 @@ export default function RankingCurso() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-white">
       <NavBar />
-      <main className="max-w-3xl mx-auto px-4 py-6">
-        <Link to={`/curso/${id}`} className="text-xs text-slate-400 hover:text-indigo-600">← Volver al curso</Link>
+      <main className="max-w-3xl mx-auto px-4 py-6 relative">
+        <div
+          className="absolute inset-x-0 top-0 h-28 pointer-events-none"
+          style={{
+            background:
+              'radial-gradient(80% 100% at 15% 0%, rgba(0,175,242,0.12), rgba(0,0,0,0) 70%), ' +
+              'radial-gradient(70% 100% at 100% 0%, rgba(255,187,0,0.12), rgba(0,0,0,0) 65%)',
+          }}
+        />
+
+        <div className="relative">
+        <Link to={`/curso/${id}`} className="text-xs text-slate-400 hover:text-brand-blue-700">← Volver al curso</Link>
         <h1 className="text-xl font-semibold text-slate-800 mt-2 mb-6">Ranking · {curso?.nombre}</h1>
 
         {curso?.permite_duelos && (
           <div className="mb-6">
             <p className="text-sm font-medium text-slate-700 mb-2">Ranking de duelos</p>
             {rankingDuelos.length === 0 ? (
-              <div className="bg-white border border-slate-200 rounded-xl p-4 text-sm text-slate-500">
+              <div className="bg-white shadow-sm rounded-2xl p-4 text-sm text-slate-500">
                 Todavía no hay duelos jugados en este curso.
               </div>
             ) : (
@@ -89,8 +99,8 @@ export default function RankingCurso() {
                 {rankingDuelos.map((r, i) => (
                   <div
                     key={r.usuario_id}
-                    className={`bg-white border rounded-xl p-4 flex items-center justify-between ${
-                      r.usuario_id === perfil.id ? 'border-indigo-300' : 'border-slate-200'
+                    className={`bg-white shadow-sm border-2 rounded-2xl p-4 flex items-center justify-between ${
+                      r.usuario_id === perfil.id ? 'border-brand-blue-500' : 'border-transparent'
                     }`}
                   >
                     <div className="flex items-center gap-3">
@@ -104,7 +114,7 @@ export default function RankingCurso() {
                         </p>
                       </div>
                     </div>
-                    <span className="text-sm font-medium text-indigo-600">{r.puntos} pts</span>
+                    <span className="text-sm font-medium text-brand-blue-700">{r.puntos} pts</span>
                   </div>
                 ))}
               </div>
@@ -116,7 +126,7 @@ export default function RankingCurso() {
           <div>
             <p className="text-sm font-medium text-slate-700 mb-2">Ranking de notas</p>
             {rankingNotas.length === 0 ? (
-              <div className="bg-white border border-slate-200 rounded-xl p-4 text-sm text-slate-500">
+              <div className="bg-white shadow-sm rounded-2xl p-4 text-sm text-slate-500">
                 Todavía no hay intentos individuales en este curso.
               </div>
             ) : (
@@ -124,8 +134,8 @@ export default function RankingCurso() {
                 {rankingNotas.map((r, i) => (
                   <div
                     key={r.usuario_id}
-                    className={`bg-white border rounded-xl p-4 flex items-center justify-between ${
-                      r.usuario_id === perfil.id ? 'border-indigo-300' : 'border-slate-200'
+                    className={`bg-white shadow-sm border-2 rounded-2xl p-4 flex items-center justify-between ${
+                      r.usuario_id === perfil.id ? 'border-brand-blue-500' : 'border-transparent'
                     }`}
                   >
                     <div className="flex items-center gap-3">
@@ -137,7 +147,7 @@ export default function RankingCurso() {
                         <p className="text-xs text-slate-400">{r.intentos} intentos</p>
                       </div>
                     </div>
-                    <span className="text-sm font-medium text-indigo-600">{r.mejor_porcentaje}%</span>
+                    <span className="text-sm font-medium text-brand-blue-700">{r.mejor_porcentaje}%</span>
                   </div>
                 ))}
               </div>
@@ -146,10 +156,11 @@ export default function RankingCurso() {
         )}
 
         {!curso?.permite_duelos && !curso?.permite_individual && (
-          <div className="bg-white border border-slate-200 rounded-xl p-4 text-sm text-slate-500">
+          <div className="bg-white shadow-sm rounded-2xl p-4 text-sm text-slate-500">
             Este curso no tiene duelos ni modo individual activado.
           </div>
         )}
+        </div>
       </main>
     </div>
   )

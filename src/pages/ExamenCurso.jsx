@@ -155,7 +155,7 @@ export default function ExamenCurso() {
 
   if (cargando) {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen bg-white">
         <NavBar />
         <main className="max-w-3xl mx-auto px-4 py-6 text-sm text-slate-400">Cargando examen...</main>
       </div>
@@ -164,11 +164,11 @@ export default function ExamenCurso() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen bg-white">
         <NavBar />
         <main className="max-w-3xl mx-auto px-4 py-6">
           <p className="text-sm text-red-500">{error}</p>
-          <Link to={`/curso/${cursoId}`} className="text-sm text-indigo-600">Volver al curso</Link>
+          <Link to={`/curso/${cursoId}`} className="text-sm text-brand-blue-700">Volver al curso</Link>
         </main>
       </div>
     )
@@ -179,11 +179,21 @@ export default function ExamenCurso() {
     const aprobado = curso?.porcentaje_certificacion ? porcentaje >= curso.porcentaje_certificacion : null
 
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen bg-white">
         <NavBar />
-        <main className="max-w-3xl mx-auto px-4 py-6">
+        <main className="max-w-3xl mx-auto px-4 py-6 relative">
+          <div
+            className="absolute inset-x-0 top-0 h-28 pointer-events-none"
+            style={{
+              background:
+                'radial-gradient(80% 100% at 15% 0%, rgba(0,175,242,0.12), rgba(0,0,0,0) 70%), ' +
+                'radial-gradient(70% 100% at 100% 0%, rgba(255,187,0,0.12), rgba(0,0,0,0) 65%)',
+            }}
+          />
+
+          <div className="relative">
           <p className="text-sm font-medium text-slate-700 mb-4">Resultado del examen — {curso?.nombre}</p>
-          <div className="bg-white border border-slate-200 rounded-xl p-6 text-center">
+          <div className="bg-white shadow-sm rounded-2xl p-6 text-center">
             <p className="text-3xl font-semibold text-slate-800">{correctas}/{preguntas.length}</p>
             <p className="text-sm text-slate-500 mt-1">{porcentaje}% de respuestas correctas</p>
 
@@ -207,16 +217,17 @@ export default function ExamenCurso() {
                 setTerminado(false)
                 cargarPreguntas()
               }}
-              className="flex-1 text-center bg-indigo-600 text-white text-sm rounded-lg py-2"
+              className="flex-1 text-center bg-brand-blue-500 text-white text-sm rounded-full font-semibold py-2"
             >
               Intentar de nuevo
             </button>
             <Link
               to={`/curso/${cursoId}`}
-              className="flex-1 text-center bg-slate-100 text-slate-600 text-sm rounded-lg py-2"
+              className="flex-1 text-center bg-white text-brand-blue-700 border-[1.5px] border-brand-blue-500 text-sm rounded-full font-semibold py-2"
             >
               Volver al curso
             </Link>
+          </div>
           </div>
         </main>
       </div>
@@ -226,15 +237,25 @@ export default function ExamenCurso() {
   const pregunta = preguntas[indice]
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-white">
       <NavBar />
-      <main className="max-w-3xl mx-auto px-4 py-6">
+      <main className="max-w-3xl mx-auto px-4 py-6 relative">
+        <div
+          className="absolute inset-x-0 top-0 h-28 pointer-events-none"
+          style={{
+            background:
+              'radial-gradient(80% 100% at 15% 0%, rgba(0,175,242,0.12), rgba(0,0,0,0) 70%), ' +
+              'radial-gradient(70% 100% at 100% 0%, rgba(255,187,0,0.12), rgba(0,0,0,0) 65%)',
+          }}
+        />
+
+        <div className="relative">
         <div className="flex items-center justify-between mb-1">
           <p className="text-xs text-slate-400">
             Examen · {curso?.nombre} · Pregunta {indice + 1} de {preguntas.length}
           </p>
           <div className="flex items-center gap-3">
-            <p className="text-sm font-medium text-indigo-600">🎯 {correctas}/{preguntas.length} aciertos</p>
+            <p className="text-sm font-medium text-brand-blue-700">🎯 {correctas}/{preguntas.length} aciertos</p>
             {curso?.tiempo_por_pregunta > 0 && seleccionada === null && (
               <p className={`text-sm font-medium ${tiempoRestante <= 5 ? 'text-red-500' : 'text-slate-500'}`}>
                 ⏱ {tiempoRestante}s
@@ -244,7 +265,7 @@ export default function ExamenCurso() {
         </div>
         <div className="w-full bg-slate-200 rounded-full h-1.5 mb-6">
           <div
-            className="bg-indigo-600 h-1.5 rounded-full transition-all"
+            className="bg-brand-blue-500 h-1.5 rounded-full transition-all"
             style={{ width: `${((indice + (seleccionada !== null ? 1 : 0)) / preguntas.length) * 100}%` }}
           />
         </div>
@@ -253,14 +274,14 @@ export default function ExamenCurso() {
           <p className="text-xs text-amber-600 mb-3">⏱ Se acabó el tiempo para esta pregunta.</p>
         )}
 
-        <div className="bg-white border border-slate-200 rounded-xl p-5">
+        <div className="bg-white shadow-sm rounded-2xl p-5">
           <p className="font-medium text-slate-800 mb-4">{pregunta?.enunciado}</p>
 
           <div className="flex flex-col gap-2">
             {pregunta?.alternativas?.map((alt, i) => {
               const esLaCorrecta = i === pregunta.correcta
               const esLaSeleccionada = i === seleccionada
-              let estilo = 'border-slate-200 hover:border-indigo-300 hover:bg-indigo-50'
+              let estilo = 'border-slate-200 hover:border-brand-blue-500/50 hover:bg-brand-blue-50'
 
               if (seleccionada !== null) {
                 if (esLaCorrecta) estilo = 'border-green-400 bg-green-50 text-green-700'
@@ -280,6 +301,7 @@ export default function ExamenCurso() {
               )
             })}
           </div>
+        </div>
         </div>
       </main>
     </div>

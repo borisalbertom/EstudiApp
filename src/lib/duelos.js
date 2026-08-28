@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 import { elegirPreguntas } from './preguntas'
 
-export async function crearDuelo({ cursoId, temaId, cantidadPreguntas, dificultad, jugador1Id, jugador2Id }) {
+export async function crearDuelo({ cursoId, temaId, cantidadPreguntas, dificultad, jugador1Id, jugador2Id, tiempoPorPregunta }) {
   const { data: curso } = await supabase
     .from('cursos')
     .select('fecha_fin, fecha_fin_duelos')
@@ -64,6 +64,7 @@ export async function crearDuelo({ cursoId, temaId, cantidadPreguntas, dificulta
       jugador_2: jugador2Id,
       estado: 'en_curso',
       cantidad_preguntas: elegidas.length,
+      tiempo_por_pregunta: tiempoPorPregunta || null,
     })
     .select('id')
     .single()

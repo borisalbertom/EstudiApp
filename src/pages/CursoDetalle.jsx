@@ -20,6 +20,8 @@ export default function CursoDetalle() {
   const [error, setError] = useState('')
   const [dificultadPorTema, setDificultadPorTema] = useState({})
   const [dificultadCurso, setDificultadCurso] = useState('todas')
+  const [segundosPorTema, setSegundosPorTema] = useState({})
+  const [cantidadPorTema, setCantidadPorTema] = useState({})
   const [solicitudPlazo, setSolicitudPlazo] = useState(null)
   const [enviandoSolicitud, setEnviandoSolicitud] = useState(false)
   const [materialesPorTema, setMaterialesPorTema] = useState({})
@@ -119,17 +121,18 @@ export default function CursoDetalle() {
     setAmigos(lista)
   }
 
-  async function retarAmigo(temaId, amigoId, dificultadOverride) {
+  async function retarAmigo(temaId, amigoId, dificultadOverride, segundosOverride, cantidadOverride) {
     setCreandoDuelo(true)
     setError('')
 
     const { dueloId, error: errorCreacion } = await crearDuelo({
       cursoId: id,
       temaId,
-      cantidadPreguntas: curso.cantidad_preguntas || 5,
+      cantidadPreguntas: cantidadOverride || curso.cantidad_preguntas || 5,
       dificultad: dificultadOverride || dificultadDe(temaId),
       jugador1Id: perfil.id,
       jugador2Id: amigoId,
+      tiempoPorPregunta: segundosOverride,
     })
 
     if (errorCreacion) {
@@ -156,7 +159,7 @@ export default function CursoDetalle() {
         <NavBar />
         <main className="max-w-3xl mx-auto px-4 py-6">
           <p className="text-sm text-slate-500">No se encontró el curso.</p>
-          <Link to="/" className="text-sm text-indigo-600">Volver al inicio</Link>
+          <Link to="/" className="text-sm text-brand-blue-700">Volver al inicio</Link>
         </main>
       </div>
     )
@@ -182,16 +185,34 @@ export default function CursoDetalle() {
 
   const rutaListado = curso.permite_individual ? '/cursos' : curso.permite_practica_individual ? '/pruebas' : '/trivias'
   const nombreListado = curso.permite_individual ? 'cursos' : curso.permite_practica_individual ? 'pruebas' : 'trivias'
+  const esTrivia = !curso.permite_individual && !curso.permite_practica_individual
+  const nombreTipo = curso.permite_individual ? 'del curso' : curso.permite_practica_individual ? 'de la prueba' : 'de la trivia'
+  function segundosDe(temaId) {
+    return segundosPorTema[temaId ?? 'curso'] ?? 20
+  }
+  function cantidadDe(temaId) {
+    return cantidadPorTema[temaId ?? 'curso'] ?? curso.cantidad_preguntas ?? 5
+  }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-white">
       <NavBar />
-      <main className="max-w-3xl mx-auto px-4 py-6">
-        <Link to={rutaListado} className="text-xs text-slate-400 hover:text-indigo-600">← Volver a {nombreListado}</Link>
+      <main className="max-w-3xl mx-auto px-4 py-6 relative">
+        <div
+          className="absolute inset-x-0 top-0 h-28 pointer-events-none"
+          style={{
+            background:
+              'radial-gradient(80% 100% at 15% 0%, rgba(0,175,242,0.12), rgba(0,0,0,0) 70%), ' +
+              'radial-gradient(70% 100% at 100% 0%, rgba(255,187,0,0.12), rgba(0,0,0,0) 65%)',
+          }}
+        />
+
+        <div className="relative">
+        <Link to={rutaListado} className="text-xs text-slate-400 hover:text-brand-blue-700">← Volver a {nombreListado}</Link>
         <div className="flex items-center justify-between mt-2">
           <h1 className="text-xl font-semibold text-slate-800">{curso.nombre}</h1>
           {curso.mostrar_ranking && (
-            <Link to={`/curso/${id}/ranking`} className="text-xs text-indigo-600 hover:underline">
+            <Link to={`/curso/${id}/ranking`} className="text-xs text-brand-blue-700 hover:underline">
               Ver ranking
             </Link>
           )}
@@ -219,38 +240,203 @@ export default function CursoDetalle() {
           </div>
         )}
 
-        <div className="mt-4 bg-white border border-slate-200 rounded-xl p-4">
-          <p className="text-sm font-medium text-slate-700 mb-2">Detalles del curso</p>
+        <div className="mt-4 bg-white shadow-sm rounded-2xl p-4">
+          <p className="text-sm font-medium text-slate-700 mb-2">
+            {esTrivia ? 'Contenidos' : `Detalles ${nombreTipo}`}
+          </p>
           <div className="grid grid-cols-2 gap-3 text-xs">
-            <div>
-              <p className="text-slate-400">Tipo</p>
-              <p className="text-slate-700 font-medium mt-0.5">
-                {curso.permite_individual
-                  ? '📝 Certificación'
-                  : curso.permite_practica_individual
-                    ? '🎯 Prueba'
-                    : '🎉 Trivia'}
-              </p>
-            </div>
-            <div>
-              <p className="text-slate-400">Preguntas por intento</p>
-              <p className="text-slate-700 font-medium mt-0.5">{curso.cantidad_preguntas}</p>
-            </div>
-            {curso.tiempo_por_pregunta > 0 && (
+            {!esTrivia && (
+              <div>
+                <p className="text-slate-400">Preguntas por intento</p>
+                <p className="text-slate-700 font-medium mt-0.5">{curso.cantidad_preguntas}</p>
+              </div>
+            )}
+            {!esTrivia && curso.tiempo_por_pregunta > 0 && (
               <div>
                 <p className="text-slate-400">Tiempo por pregunta</p>
                 <p className="text-slate-700 font-medium mt-0.5">{curso.tiempo_por_pregunta}s</p>
               </div>
             )}
-            <div>
-              <p className="text-slate-400">Fecha límite</p>
-              <p className="text-slate-700 font-medium mt-0.5">{curso.fecha_fin || 'Sin límite'}</p>
-            </div>
+            {(!esTrivia || curso.fecha_fin) && (
+              <div>
+                <p className="text-slate-400">Fecha límite</p>
+                <p className="text-slate-700 font-medium mt-0.5">{curso.fecha_fin || 'Sin límite'}</p>
+              </div>
+            )}
+            {esTrivia && temas.length > 0 && (
+              <div className="col-span-2">
+                <p className="text-slate-700 font-medium">{temas.map((t) => t.nombre).join(' · ')}</p>
+              </div>
+            )}
           </div>
         </div>
 
-        {!vencido && temas.length > 1 && (curso.permite_practica_individual || duelosDisponibles) && (
-          <div className="mt-4 bg-white border border-indigo-200 rounded-xl p-4">
+        {!vencido && esTrivia && (
+          <>
+            <p className="text-sm font-medium text-slate-700 mt-6 mb-2">Cómo jugar</p>
+
+            <div className="bg-white shadow-sm rounded-2xl p-4 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-brand-blue-50 flex items-center justify-center shrink-0">🎉</div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-slate-800">En este dispositivo</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Se van pasando el celular o compu por turnos — sin cuenta ni invitación.
+                </p>
+              </div>
+              <Link
+                to={`/curso/${id}/local`}
+                className="text-xs bg-brand-blue-500 text-white px-3 py-1.5 rounded-full font-semibold shrink-0"
+              >
+                Jugar ahora
+              </Link>
+            </div>
+
+            {duelosDisponibles && (
+              <div className="mt-3 bg-white shadow-sm rounded-2xl p-4">
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="w-9 h-9 rounded-full bg-brand-amber-50 flex items-center justify-center shrink-0">📤</div>
+                  <p className="text-sm font-medium text-slate-800">Retar a un amigo</p>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5 mb-3">
+                  Le mandas el desafío a un amigo y cada uno responde cuando quiera, a su propio ritmo.
+                </p>
+
+                {temas.length > 1 && (
+                  <div className="border-t border-slate-100 pt-3 first:border-t-0 first:pt-0">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <p className="text-sm text-slate-700">Todos los contenidos</p>
+                      <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                        <label className="flex items-center gap-1 text-xs text-slate-600 border border-slate-200 rounded-md px-1.5 py-1">
+                          🔢
+                          <input
+                            type="number"
+                            min={1}
+                            max={50}
+                            value={cantidadDe('curso')}
+                            onChange={(e) => setCantidadPorTema((prev) => ({ ...prev, curso: Number(e.target.value) }))}
+                            className="w-8 outline-none"
+                          />
+                          <span className="text-slate-400">preg.</span>
+                        </label>
+                        <label className="flex items-center gap-1 text-xs text-slate-600 border border-slate-200 rounded-md px-1.5 py-1">
+                          ⏱
+                          <input
+                            type="number"
+                            min={5}
+                            max={120}
+                            value={segundosDe('curso')}
+                            onChange={(e) => setSegundosPorTema((prev) => ({ ...prev, curso: Number(e.target.value) }))}
+                            className="w-8 outline-none"
+                          />
+                          <span className="text-slate-400">s</span>
+                        </label>
+                        <button
+                          onClick={() => setTemaRetando(temaRetando === 'curso' ? null : 'curso')}
+                          className="text-xs bg-white text-brand-blue-700 border-[1.5px] border-brand-blue-500 px-3 py-1 rounded-full font-semibold"
+                        >
+                          Retar a un amigo
+                        </button>
+                      </div>
+                    </div>
+
+                    {temaRetando === 'curso' && (
+                      <div className="mt-3">
+                        {amigos.length === 0 ? (
+                          <p className="text-xs text-slate-400">
+                            Todavía no tienes amigos agregados. Ve a{' '}
+                            <Link to="/amigos" className="text-brand-blue-700">Amigos</Link>.
+                          </p>
+                        ) : (
+                          <div className="flex flex-col gap-2">
+                            {amigos.map((a) => (
+                              <button
+                                key={a.id}
+                                disabled={creandoDuelo}
+                                onClick={() => retarAmigo(null, a.id, 'todas', segundosDe('curso'), cantidadDe('curso'))}
+                                className="flex items-center justify-between bg-slate-50 hover:bg-brand-blue-50 rounded-lg px-3 py-2 text-sm text-slate-700 disabled:opacity-50"
+                              >
+                                <span>{a.nombre}</span>
+                                <span className="text-xs text-brand-blue-700">{creandoDuelo ? 'Creando...' : 'Retar'}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {temas.map((t) => (
+                  <div key={t.id} className="border-t border-slate-100 pt-3 mt-3 first:border-t-0 first:pt-0 first:mt-0">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <p className="text-sm text-slate-700">{t.nombre}</p>
+                      <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                        <label className="flex items-center gap-1 text-xs text-slate-600 border border-slate-200 rounded-md px-1.5 py-1">
+                          🔢
+                          <input
+                            type="number"
+                            min={1}
+                            max={50}
+                            value={cantidadDe(t.id)}
+                            onChange={(e) => setCantidadPorTema((prev) => ({ ...prev, [t.id]: Number(e.target.value) }))}
+                            className="w-8 outline-none"
+                          />
+                          <span className="text-slate-400">preg.</span>
+                        </label>
+                        <label className="flex items-center gap-1 text-xs text-slate-600 border border-slate-200 rounded-md px-1.5 py-1">
+                          ⏱
+                          <input
+                            type="number"
+                            min={5}
+                            max={120}
+                            value={segundosDe(t.id)}
+                            onChange={(e) => setSegundosPorTema((prev) => ({ ...prev, [t.id]: Number(e.target.value) }))}
+                            className="w-8 outline-none"
+                          />
+                          <span className="text-slate-400">s</span>
+                        </label>
+                        <button
+                          onClick={() => setTemaRetando(temaRetando === t.id ? null : t.id)}
+                          className="text-xs bg-white text-brand-blue-700 border-[1.5px] border-brand-blue-500 px-3 py-1 rounded-full font-semibold"
+                        >
+                          Retar a un amigo
+                        </button>
+                      </div>
+                    </div>
+
+                    {temaRetando === t.id && (
+                      <div className="mt-3">
+                        {amigos.length === 0 ? (
+                          <p className="text-xs text-slate-400">
+                            Todavía no tienes amigos agregados. Ve a{' '}
+                            <Link to="/amigos" className="text-brand-blue-700">Amigos</Link>.
+                          </p>
+                        ) : (
+                          <div className="flex flex-col gap-2">
+                            {amigos.map((a) => (
+                              <button
+                                key={a.id}
+                                disabled={creandoDuelo}
+                                onClick={() => retarAmigo(t.id, a.id, 'todas', segundosDe(t.id), cantidadDe(t.id))}
+                                className="flex items-center justify-between bg-slate-50 hover:bg-brand-blue-50 rounded-lg px-3 py-2 text-sm text-slate-700 disabled:opacity-50"
+                              >
+                                <span>{a.nombre}</span>
+                                <span className="text-xs text-brand-blue-700">{creandoDuelo ? 'Creando...' : 'Retar'}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {!vencido && !esTrivia && temas.length > 1 && (curso.permite_practica_individual || duelosDisponibles) && (
+          <div className="mt-4 bg-white shadow-sm rounded-2xl p-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <p className="text-sm font-medium text-slate-800">🎯 Todos los contenidos</p>
               <div className="flex items-center gap-2 shrink-0 flex-wrap">
@@ -267,7 +453,7 @@ export default function CursoDetalle() {
                 {curso.permite_practica_individual && (
                   <Link
                     to={`/curso/${id}/individual?dificultad=${dificultadCurso}`}
-                    className="text-xs bg-slate-100 text-slate-600 px-3 py-1 rounded-md"
+                    className="text-xs bg-white text-brand-amber-700 border-[1.5px] border-brand-amber-500 px-3 py-1 rounded-full font-semibold"
                   >
                     Practicar solo
                   </Link>
@@ -275,7 +461,7 @@ export default function CursoDetalle() {
                 {duelosDisponibles && (
                   <button
                     onClick={() => setTemaRetando(temaRetando === 'curso' ? null : 'curso')}
-                    className="text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded-md"
+                    className="text-xs bg-white text-brand-blue-700 border-[1.5px] border-brand-blue-500 px-3 py-1 rounded-full font-semibold"
                   >
                     Retar a un amigo
                   </button>
@@ -288,7 +474,7 @@ export default function CursoDetalle() {
                 {amigos.length === 0 ? (
                   <p className="text-xs text-slate-400">
                     Todavía no tienes amigos agregados. Ve a{' '}
-                    <Link to="/amigos" className="text-indigo-600">Amigos</Link>.
+                    <Link to="/amigos" className="text-brand-blue-700">Amigos</Link>.
                   </p>
                 ) : (
                   <div className="flex flex-col gap-2">
@@ -297,10 +483,10 @@ export default function CursoDetalle() {
                         key={a.id}
                         disabled={creandoDuelo}
                         onClick={() => retarAmigo(null, a.id, dificultadCurso)}
-                        className="flex items-center justify-between bg-slate-50 hover:bg-indigo-50 rounded-lg px-3 py-2 text-sm text-slate-700 disabled:opacity-50"
+                        className="flex items-center justify-between bg-slate-50 hover:bg-brand-blue-50 rounded-lg px-3 py-2 text-sm text-slate-700 disabled:opacity-50"
                       >
                         <span>{a.nombre}</span>
-                        <span className="text-xs text-indigo-600">{creandoDuelo ? 'Creando...' : 'Retar'}</span>
+                        <span className="text-xs text-brand-blue-700">{creandoDuelo ? 'Creando...' : 'Retar'}</span>
                       </button>
                     ))}
                   </div>
@@ -318,6 +504,8 @@ export default function CursoDetalle() {
 
         {error && <p className="text-xs text-red-500 mt-4">{error}</p>}
 
+        {!esTrivia && (
+        <>
         <p className="text-sm font-medium text-slate-700 mt-6 mb-1">
           {curso.permite_individual ? 'Temario del curso' : 'Contenidos'}
         </p>
@@ -328,17 +516,17 @@ export default function CursoDetalle() {
         </p>
 
         {temas.length === 0 && (
-          <div className="bg-white border border-slate-200 rounded-xl p-4 text-sm text-slate-500">
+          <div className="bg-white shadow-sm rounded-2xl p-4 text-sm text-slate-500">
             Este curso todavía no tiene contenido cargado.
           </div>
         )}
 
         <div className="flex flex-col gap-2">
           {temas.map((t) => (
-            <div key={t.id} className="bg-white border border-slate-200 rounded-xl p-4">
+            <div key={t.id} className="bg-white shadow-sm rounded-2xl p-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <p className="font-medium text-slate-800">{t.nombre}</p>
-                {!vencido && (curso.permite_practica_individual || duelosDisponibles) && (
+                {!vencido && !esTrivia && (curso.permite_practica_individual || duelosDisponibles) && (
                   <div className="flex items-center gap-2 shrink-0 flex-wrap">
                     <select
                       value={dificultadDe(t.id)}
@@ -353,7 +541,7 @@ export default function CursoDetalle() {
                     {curso.permite_practica_individual && (
                       <Link
                         to={`/curso/${id}/tema/${t.id}/individual?dificultad=${dificultadDe(t.id)}`}
-                        className="text-xs bg-slate-100 text-slate-600 px-3 py-1 rounded-md"
+                        className="text-xs bg-white text-brand-amber-700 border-[1.5px] border-brand-amber-500 px-3 py-1 rounded-full font-semibold"
                       >
                         Practicar solo
                       </Link>
@@ -361,7 +549,7 @@ export default function CursoDetalle() {
                     {duelosDisponibles && (
                       <button
                         onClick={() => setTemaRetando(temaRetando === t.id ? null : t.id)}
-                        className="text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded-md"
+                        className="text-xs bg-white text-brand-blue-700 border-[1.5px] border-brand-blue-500 px-3 py-1 rounded-full font-semibold"
                       >
                         Retar a un amigo
                       </button>
@@ -394,7 +582,7 @@ export default function CursoDetalle() {
                           target="_blank"
                           rel="noreferrer"
                           className={`flex items-center gap-2 flex-1 min-w-0 rounded-md px-1 -mx-1 ${
-                            visto ? 'text-slate-400' : 'text-indigo-600 hover:bg-indigo-50'
+                            visto ? 'text-slate-400' : 'text-brand-blue-700 hover:bg-brand-blue-50'
                           }`}
                         >
                           <span className="shrink-0">{visto ? '✅' : iconoMaterial(m.nombre_archivo)}</span>
@@ -417,12 +605,12 @@ export default function CursoDetalle() {
                 </div>
               )}
 
-              {temaRetando === t.id && duelosDisponibles && (
+              {!esTrivia && temaRetando === t.id && duelosDisponibles && (
                 <div className="mt-3 border-t border-slate-100 pt-3">
                   {amigos.length === 0 ? (
                     <p className="text-xs text-slate-400">
                       Todavía no tienes amigos agregados. Ve a{' '}
-                      <Link to="/amigos" className="text-indigo-600">Amigos</Link>.
+                      <Link to="/amigos" className="text-brand-blue-700">Amigos</Link>.
                     </p>
                   ) : (
                     <div className="flex flex-col gap-2">
@@ -431,10 +619,10 @@ export default function CursoDetalle() {
                           key={a.id}
                           disabled={creandoDuelo}
                           onClick={() => retarAmigo(t.id, a.id)}
-                          className="flex items-center justify-between bg-slate-50 hover:bg-indigo-50 rounded-lg px-3 py-2 text-sm text-slate-700 disabled:opacity-50"
+                          className="flex items-center justify-between bg-slate-50 hover:bg-brand-blue-50 rounded-lg px-3 py-2 text-sm text-slate-700 disabled:opacity-50"
                         >
                           <span>{a.nombre}</span>
-                          <span className="text-xs text-indigo-600">{creandoDuelo ? 'Creando...' : 'Retar'}</span>
+                          <span className="text-xs text-brand-blue-700">{creandoDuelo ? 'Creando...' : 'Retar'}</span>
                         </button>
                       ))}
                     </div>
@@ -444,12 +632,14 @@ export default function CursoDetalle() {
             </div>
           ))}
         </div>
+        </>
+        )}
 
         {!vencido && curso.permite_individual && temas.length > 1 && (
           materialCompleto ? (
             <Link
               to={`/curso/${id}/examen`}
-              className="mt-2 flex items-center gap-2 bg-indigo-600 text-white rounded-xl px-4 py-3 hover:bg-indigo-700"
+              className="mt-2 flex items-center gap-2 bg-brand-blue-500 text-white rounded-xl px-4 py-3 hover:brightness-95"
             >
               <span className="text-lg">📝</span>
               <span className="flex-1 text-sm font-medium">{materialesFlat.length + 1}. Examen final</span>
@@ -465,6 +655,7 @@ export default function CursoDetalle() {
             </div>
           )
         )}
+        </div>
       </main>
     </div>
   )

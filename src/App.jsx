@@ -9,6 +9,7 @@ import Trivias from './pages/Trivias'
 import Amigos from './pages/Amigos'
 import Perfil from './pages/Perfil'
 import CursoDetalle from './pages/CursoDetalle'
+import JuegoLocal from './pages/JuegoLocal'
 import JugarDuelo from './pages/JugarDuelo'
 import ResultadoDuelo from './pages/ResultadoDuelo'
 import PracticaIndividual from './pages/PracticaIndividual'
@@ -57,6 +58,14 @@ export default function App() {
             element={
               <RutaProtegida>
                 <CursoDetalle />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/curso/:id/local"
+            element={
+              <RutaProtegida>
+                <JuegoLocal />
               </RutaProtegida>
             }
           />

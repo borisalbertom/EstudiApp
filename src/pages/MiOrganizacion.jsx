@@ -45,7 +45,7 @@ export default function MiOrganizacion() {
 
   if (orgsAdmin.length === 0 && !perfil?.es_admin_plataforma) {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen bg-white">
         <NavBar />
         <main className="max-w-3xl mx-auto px-4 py-6">
           <p className="text-sm text-slate-500">No tienes permisos para ver esta página.</p>
@@ -55,7 +55,7 @@ export default function MiOrganizacion() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-white">
       <NavBar />
       <main className="max-w-3xl mx-auto px-4 py-6">
         <p className="text-lg font-medium text-slate-800 mb-4">Mi organización</p>
@@ -92,7 +92,7 @@ export default function MiOrganizacion() {
                     <button
                       onClick={() => alternarRolMiembro(m, o.id)}
                       className={`text-xs px-2 py-1 rounded-md shrink-0 ${
-                        m.rol === 'admin_curso' ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-600'
+                        m.rol === 'admin_curso' ? 'bg-brand-blue-500 text-white' : 'bg-slate-200 text-slate-600'
                       }`}
                     >
                       {m.rol === 'admin_curso' ? 'Admin de cursos' : 'Hacer admin de cursos'}

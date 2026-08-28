@@ -105,14 +105,24 @@ export default function Perfil() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-white">
       <NavBar />
-      <main className="max-w-3xl mx-auto px-4 py-6 flex flex-col gap-4">
-        <div className="bg-white border border-slate-200 rounded-xl p-6">
+      <main className="max-w-3xl mx-auto px-4 py-6 flex flex-col gap-4 relative">
+        <div
+          className="absolute inset-x-0 top-0 h-28 pointer-events-none"
+          style={{
+            background:
+              'radial-gradient(80% 100% at 15% 0%, rgba(0,175,242,0.12), rgba(0,0,0,0) 70%), ' +
+              'radial-gradient(70% 100% at 100% 0%, rgba(255,187,0,0.12), rgba(0,0,0,0) 65%)',
+          }}
+        />
+
+        <div className="relative flex flex-col gap-4">
+        <div className="bg-white shadow-sm rounded-2xl p-6">
           <button
             onClick={() => inputRef.current?.click()}
             disabled={subiendo}
-            className="relative w-14 h-14 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xl font-medium mb-3 overflow-hidden group"
+            className="relative w-14 h-14 rounded-full bg-brand-blue-50 text-brand-blue-700 flex items-center justify-center text-xl font-medium mb-3 overflow-hidden group"
           >
             {perfil?.avatar_url ? (
               <img src={perfil.avatar_url} alt="" className="w-full h-full object-cover" />
@@ -141,7 +151,7 @@ export default function Perfil() {
                 className="border border-slate-300 rounded-lg px-2 py-1 text-sm"
                 autoFocus
               />
-              <button onClick={guardarNombre} disabled={guardandoNombre} className="text-xs text-indigo-600">
+              <button onClick={guardarNombre} disabled={guardandoNombre} className="text-xs text-brand-blue-700">
                 {guardandoNombre ? 'Guardando...' : 'Guardar'}
               </button>
               <button onClick={() => setEditandoNombre(false)} className="text-xs text-slate-400">
@@ -156,7 +166,7 @@ export default function Perfil() {
                   setEditandoNombre(true)
                   setNombreEditado(perfil?.nombre || '')
                 }}
-                className="text-xs text-slate-400 hover:text-indigo-600"
+                className="text-xs text-slate-400 hover:text-brand-blue-700"
               >
                 Editar
               </button>
@@ -177,14 +187,14 @@ export default function Perfil() {
 
           <Link
             to="/logros"
-            className="mt-3 flex items-center justify-between bg-slate-50 hover:bg-indigo-50 rounded-lg p-3"
+            className="mt-3 flex items-center justify-between bg-slate-50 hover:bg-brand-blue-50 rounded-lg p-3"
           >
             <span className="text-sm text-slate-700">🏆 Logros</span>
-            <span className="text-sm text-indigo-600">{logrosObtenidos}/{totalLogros} →</span>
+            <span className="text-sm text-brand-blue-700">{logrosObtenidos}/{totalLogros} →</span>
           </Link>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-xl p-6">
+        <div className="bg-white shadow-sm rounded-2xl p-6">
           <p className="text-sm font-medium text-slate-700 mb-3">Cambiar contraseña</p>
           <form onSubmit={cambiarPassword} className="flex flex-col gap-2">
             <div className="relative">
@@ -219,11 +229,12 @@ export default function Perfil() {
             <button
               type="submit"
               disabled={cambiandoPassword || !nuevaPassword}
-              className="bg-indigo-600 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50"
+              className="bg-brand-blue-500 text-white rounded-full py-2 text-sm font-semibold disabled:opacity-50"
             >
               {cambiandoPassword ? 'Cambiando...' : 'Cambiar contraseña'}
             </button>
           </form>
+        </div>
         </div>
       </main>
     </div>

@@ -91,7 +91,7 @@ export default function ResultadoDuelo() {
 
   if (cargando) {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen bg-white">
         <NavBar />
         <main className="max-w-3xl mx-auto px-4 py-6 text-sm text-slate-400">Cargando resultado...</main>
       </div>
@@ -100,11 +100,11 @@ export default function ResultadoDuelo() {
 
   if (!duelo) {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen bg-white">
         <NavBar />
         <main className="max-w-3xl mx-auto px-4 py-6">
           <p className="text-sm text-slate-500">No se encontró el duelo.</p>
-          <Link to="/" className="text-sm text-indigo-600">Volver al inicio</Link>
+          <Link to="/" className="text-sm text-brand-blue-700">Volver al inicio</Link>
         </main>
       </div>
     )
@@ -127,12 +127,22 @@ export default function ResultadoDuelo() {
       : null
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-white">
       <NavBar />
-      <main className="max-w-3xl mx-auto px-4 py-6">
+      <main className="max-w-3xl mx-auto px-4 py-6 relative">
+        <div
+          className="absolute inset-x-0 top-0 h-28 pointer-events-none"
+          style={{
+            background:
+              'radial-gradient(80% 100% at 15% 0%, rgba(0,175,242,0.12), rgba(0,0,0,0) 70%), ' +
+              'radial-gradient(70% 100% at 100% 0%, rgba(255,187,0,0.12), rgba(0,0,0,0) 65%)',
+          }}
+        />
+
+        <div className="relative">
         <p className="text-sm font-medium text-slate-700 mb-4">Resultado del duelo</p>
 
-        <div className="bg-white border border-slate-200 rounded-xl p-5">
+        <div className="bg-white shadow-sm rounded-2xl p-5">
           <div className="grid grid-cols-2 gap-4">
             <TarjetaJugador
               nombre={jugador1?.nombre}
@@ -175,7 +185,7 @@ export default function ResultadoDuelo() {
           {!duelo.abandonado_por && !yoTermine && (
             <Link
               to={`/duelo/${id}`}
-              className="block text-center bg-indigo-600 text-white text-sm rounded-lg py-2 mt-5"
+              className="block text-center bg-brand-blue-500 text-white text-sm rounded-full font-semibold py-2 mt-5"
             >
               Continuar respondiendo
             </Link>
@@ -186,15 +196,16 @@ export default function ResultadoDuelo() {
           <button
             onClick={pedirRevancha}
             disabled={creandoRevancha}
-            className="w-full text-center bg-slate-100 text-slate-700 text-sm rounded-lg py-2 mt-3 disabled:opacity-50"
+            className="w-full text-center bg-white text-brand-blue-700 border-[1.5px] border-brand-blue-500 text-sm rounded-full font-semibold py-2 mt-3 disabled:opacity-50"
           >
             {creandoRevancha ? 'Creando revancha...' : '🔁 Revancha'}
           </button>
         </div>
 
-        <Link to="/" className="block text-center text-xs text-slate-400 hover:text-indigo-600 mt-4">
+        <Link to="/" className="block text-center text-xs text-slate-400 hover:text-brand-blue-700 mt-4">
           Volver al inicio
         </Link>
+        </div>
       </main>
     </div>
   )
@@ -204,7 +215,7 @@ function TarjetaJugador({ nombre, puntaje, total, termino, esGanador, esYo, aban
   return (
     <div
       className={`rounded-lg p-4 text-center border ${
-        esGanador ? 'border-indigo-400 bg-indigo-50' : 'border-slate-200 bg-slate-50'
+        esGanador ? 'border-brand-blue-500 bg-brand-blue-50' : 'border-slate-200 bg-slate-50'
       }`}
     >
       <p className="text-xs text-slate-500 mb-1">
@@ -217,7 +228,7 @@ function TarjetaJugador({ nombre, puntaje, total, termino, esGanador, esYo, aban
       {!abandono && !termino && (
         <p className="text-xs text-slate-400 mt-1">{rivalAbandono ? 'No alcanzó a responder' : 'Sin responder aún'}</p>
       )}
-      {esGanador && <p className="text-xs text-indigo-600 mt-1 font-medium">🏆 Ganador</p>}
+      {esGanador && <p className="text-xs text-brand-blue-700 mt-1 font-medium">🏆 Ganador</p>}
     </div>
   )
 }

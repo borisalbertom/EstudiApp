@@ -17,6 +17,7 @@ export default function ListaCursos({ tipo }) {
   const [busquedaMisCursos, setBusquedaMisCursos] = useState('')
   const [busquedaCatalogo, setBusquedaCatalogo] = useState('')
   const [inscribiendo, setInscribiendo] = useState(null)
+  const [confirmandoAbandono, setConfirmandoAbandono] = useState(null)
 
   function coincideTipo(curso) {
     if (!curso) return false
@@ -33,18 +34,33 @@ export default function ListaCursos({ tipo }) {
     setCargando(true)
     const hoy = new Date().toISOString().slice(0, 10)
 
-    const { data: inscripciones } = await supabase
-      .from('inscripciones_curso')
-      .select(
-        'curso_id, estado, visto, cursos(id, nombre, descripcion, visibilidad, permite_individual, permite_practica_individual, fecha_fin, organizaciones(nombre_empresa))'
-      )
-      .eq('usuario_id', perfil.id)
+    let consultaPublicos = supabase
+      .from('cursos')
+      .select('id, nombre, descripcion, fecha_fin')
+      .eq('visibilidad', 'publico')
+      .eq('permite_individual', tipo === 'curso')
+    if (tipo !== 'curso') consultaPublicos = consultaPublicos.eq('permite_practica_individual', tipo === 'prueba')
+    consultaPublicos = consultaPublicos
+      .or(`fecha_fin.is.null,fecha_fin.gte.${hoy}`)
+      .order('creado_en', { ascending: false })
+
+    const [{ data: inscripciones }, { data: publicosData }] = await Promise.all([
+      supabase
+        .from('inscripciones_curso')
+        .select(
+          'curso_id, estado, visto, cursos(id, nombre, descripcion, visibilidad, permite_individual, permite_practica_individual, fecha_fin, organizaciones(nombre_empresa))'
+        )
+        .eq('usuario_id', perfil.id),
+      consultaPublicos,
+    ])
 
     const propios = (inscripciones || []).filter((i) => coincideTipo(i.cursos))
-    const idsInscritos = propios.map((i) => i.curso_id)
+    const idsInscritos = new Set(propios.map((i) => i.curso_id))
     const idsAsignadosNuevos = propios.filter((i) => i.estado === 'asignado' && !i.visto).map((i) => i.curso_id)
 
     setMisCursos(propios.map((i) => i.cursos).filter((c) => c && (!c.fecha_fin || c.fecha_fin >= hoy)))
+    setCatalogo((publicosData || []).filter((c) => !idsInscritos.has(c.id)))
+    setCargando(false)
 
     if (idsAsignadosNuevos.length > 0) {
       const { data: cursosAsignados } = await supabase
@@ -63,31 +79,15 @@ export default function ListaCursos({ tipo }) {
     } else {
       setAsignados([])
     }
-
-    let consultaPublicos = supabase
-      .from('cursos')
-      .select('id, nombre, descripcion, fecha_fin')
-      .eq('visibilidad', 'publico')
-      .eq('permite_individual', tipo === 'curso')
-    if (tipo !== 'curso') consultaPublicos = consultaPublicos.eq('permite_practica_individual', tipo === 'prueba')
-    consultaPublicos = consultaPublicos
-      .or(`fecha_fin.is.null,fecha_fin.gte.${hoy}`)
-      .order('creado_en', { ascending: false })
-    if (idsInscritos.length > 0) consultaPublicos = consultaPublicos.not('id', 'in', `(${idsInscritos.join(',')})`)
-    const { data: publicos } = await consultaPublicos
-
-    setCatalogo(publicos || [])
-    setCargando(false)
   }
 
   async function abandonarCurso(cursoId) {
-    const confirmado = window.confirm(`¿Seguro que quieres abandonar este ${singular}?`)
-    if (!confirmado) return
     const { error } = await supabase
       .from('inscripciones_curso')
       .delete()
       .eq('curso_id', cursoId)
       .eq('usuario_id', perfil.id)
+    setConfirmandoAbandono(null)
     if (!error) setMisCursos((prev) => prev.filter((c) => c.id !== cursoId))
   }
 
@@ -115,26 +115,49 @@ export default function ListaCursos({ tipo }) {
   const singular = tipo === 'curso' ? 'curso' : tipo === 'prueba' ? 'prueba' : 'trivia'
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-white">
       <NavBar />
-      <main className="max-w-3xl mx-auto px-4 py-6">
-        <p className="text-lg font-medium text-slate-800 mb-4">{titulo}</p>
+      <main className="max-w-3xl mx-auto px-4 py-6 relative">
+        <div
+          className="absolute inset-x-0 top-0 h-28 pointer-events-none"
+          style={{
+            background:
+              'radial-gradient(80% 100% at 15% 0%, rgba(0,175,242,0.12), rgba(0,0,0,0) 70%), ' +
+              'radial-gradient(70% 100% at 100% 0%, rgba(255,187,0,0.12), rgba(0,0,0,0) 65%)',
+          }}
+        />
+
+        <div className="relative">
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-lg font-medium text-slate-800">{titulo}</p>
+          {tipo !== 'curso' && (
+            <Link
+              to={`/admin?crear=${tipo}`}
+              className="text-xs bg-brand-blue-500 text-white px-3 py-1.5 rounded-full font-semibold"
+            >
+              + Crear {singular}
+            </Link>
+          )}
+        </div>
 
         {asignados.length > 0 && (
           <div className="mb-6">
-            <p className="text-sm font-medium text-indigo-700 mb-2">🆕 Te han asignado un {singular}</p>
+            <p className="text-sm font-medium text-slate-700 mb-2">🆕 Te han asignado un {singular}</p>
             <div className="flex flex-col gap-2">
               {asignados.map((c) => (
                 <Link
                   key={c.id}
                   to={`/curso/${c.id}`}
-                  className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 flex items-center justify-between hover:border-indigo-400"
+                  className="bg-white border-[1.5px] border-brand-amber-500 rounded-2xl p-4 flex items-center gap-3"
                 >
-                  <div>
+                  <div className="w-9 h-9 rounded-full bg-brand-amber-50 flex items-center justify-center shrink-0">🆕</div>
+                  <div className="flex-1 min-w-0">
                     <p className="font-medium text-slate-800">{c.nombre}</p>
                     <p className="text-xs text-slate-500">Privado · {c.organizaciones?.nombre_empresa || 'Empresa'}</p>
                   </div>
-                  <span className="text-xs bg-indigo-600 text-white px-2 py-1 rounded-md">Ver</span>
+                  <span className="text-xs bg-brand-blue-500 text-white px-2.5 py-1 rounded-full font-semibold">
+                    {tipo === 'trivia' ? 'Ingresar' : 'Ver'}
+                  </span>
                 </Link>
               ))}
             </div>
@@ -146,7 +169,7 @@ export default function ListaCursos({ tipo }) {
         <p className="text-sm font-medium text-slate-700 mb-2">Mis {titulo.toLowerCase()}</p>
 
         {!cargando && misCursos.length === 0 && (
-          <div className="bg-white border border-slate-200 rounded-xl p-4 text-sm text-slate-500 mb-6">
+          <div className="bg-white shadow-sm rounded-2xl p-4 text-sm text-slate-500 mb-6">
             Todavía no estás inscrito en ningún {singular} — inscríbete abajo.
           </div>
         )}
@@ -164,29 +187,52 @@ export default function ListaCursos({ tipo }) {
         {misCursos.length > 0 && (
           <div className="flex flex-col gap-2 mb-6">
             {misCursosFiltrados.map((c) => (
-              <div
-                key={c.id}
-                className="bg-white border border-slate-200 rounded-xl p-4 flex items-center justify-between hover:border-indigo-300"
-              >
+              <div key={c.id} className="bg-white shadow-sm rounded-2xl p-4 flex items-center gap-3">
                 <Link to={`/curso/${c.id}`} className="flex-1 min-w-0">
                   <p className="font-medium text-slate-800">{c.nombre}</p>
                   <p className="text-xs text-slate-500">
-                    {c.visibilidad === 'publico' ? 'Público' : `Privado · ${c.organizaciones?.nombre_empresa || 'Empresa'}`}
-                    {' · '}
-                    {c.fecha_fin ? `Vence ${c.fecha_fin}` : 'Sin fecha límite'}
+                    {c.visibilidad === 'publico'
+                      ? 'Público'
+                      : c.organizaciones?.nombre_empresa
+                        ? `Privado · ${c.organizaciones.nombre_empresa}`
+                        : 'Privado'}
+                    {(tipo !== 'trivia' || c.fecha_fin) && (
+                      <> · {c.fecha_fin ? `Vence ${c.fecha_fin}` : 'Sin fecha límite'}</>
+                    )}
                   </p>
                 </Link>
                 <div className="flex items-center gap-2 shrink-0">
                   {c.visibilidad === 'publico' && (
-                    <button
-                      onClick={() => abandonarCurso(c.id)}
-                      className="text-xs text-slate-400 hover:text-red-500"
-                    >
-                      Abandonar
-                    </button>
+                    confirmandoAbandono === c.id ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-500">¿Seguro?</span>
+                        <button
+                          onClick={() => abandonarCurso(c.id)}
+                          className="text-xs text-red-600 font-medium"
+                        >
+                          Sí, abandonar
+                        </button>
+                        <button
+                          onClick={() => setConfirmandoAbandono(null)}
+                          className="text-xs text-slate-400"
+                        >
+                          No
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmandoAbandono(c.id)}
+                        className="text-xs text-slate-400 hover:text-red-500"
+                      >
+                        Abandonar
+                      </button>
+                    )
                   )}
-                  <Link to={`/curso/${c.id}`} className="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded-md">
-                    Ver
+                  <Link
+                    to={`/curso/${c.id}`}
+                    className="text-xs bg-white text-brand-blue-700 border-[1.5px] border-brand-blue-500 px-2.5 py-1 rounded-full font-semibold"
+                  >
+                    {tipo === 'trivia' ? 'Ingresar' : 'Ver'}
                   </Link>
                 </div>
               </div>
@@ -205,38 +251,39 @@ export default function ListaCursos({ tipo }) {
         />
 
         {!cargando && catalogo.length === 0 && (
-          <div className="bg-white border border-slate-200 rounded-xl p-4 text-sm text-slate-500">
+          <div className="bg-white shadow-sm rounded-2xl p-4 text-sm text-slate-500">
             No hay {titulo.toLowerCase()} gratis nuevas disponibles — ya estás inscrito en todas.
           </div>
         )}
 
         {!cargando && catalogo.length > 0 && catalogoFiltrado.length === 0 && (
-          <div className="bg-white border border-slate-200 rounded-xl p-4 text-sm text-slate-500">
+          <div className="bg-white shadow-sm rounded-2xl p-4 text-sm text-slate-500">
             No hay {titulo.toLowerCase()} que calcen con tu búsqueda.
           </div>
         )}
 
         <div className="flex flex-col gap-2">
           {catalogoFiltrado.map((c) => (
-            <div
-              key={c.id}
-              className="bg-white border border-slate-200 rounded-xl p-4 flex items-center justify-between"
-            >
-              <div>
+            <div key={c.id} className="bg-white shadow-sm rounded-2xl p-4 flex items-center justify-between gap-3">
+              <div className="min-w-0">
                 <p className="font-medium text-slate-800">{c.nombre}</p>
                 <p className="text-xs text-slate-500">
-                  Público · {c.fecha_fin ? `Vence ${c.fecha_fin}` : 'Sin fecha límite'}
+                  Público
+                  {(tipo !== 'trivia' || c.fecha_fin) && (
+                    <> · {c.fecha_fin ? `Vence ${c.fecha_fin}` : 'Sin fecha límite'}</>
+                  )}
                 </p>
               </div>
               <button
                 onClick={() => inscribirse(c.id)}
                 disabled={inscribiendo === c.id}
-                className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-md disabled:opacity-50"
+                className="text-xs bg-brand-blue-500 text-white px-3 py-1.5 rounded-full font-semibold disabled:opacity-50 shrink-0"
               >
                 {inscribiendo === c.id ? 'Inscribiendo...' : 'Inscribirme'}
               </button>
             </div>
           ))}
+        </div>
         </div>
       </main>
     </div>
