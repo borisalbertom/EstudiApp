@@ -25,9 +25,11 @@ export default function JuegoLocal() {
   const { perfil } = useAuth()
 
   const [curso, setCurso] = useState(null)
+  const [temas, setTemas] = useState([])
+  const [temaSorteado, setTemaSorteado] = useState(null)
   const [cargando, setCargando] = useState(true)
 
-  const [fase, setFase] = useState('configurar') // 'configurar' | 'pregunta' | 'resultado'
+  const [fase, setFase] = useState('configurar') // 'configurar' | 'transicion' | 'pregunta' | 'resultado'
   const [modo, setModo] = useState('individual') // 'individual' | 'equipos'
   const [cantidadPreguntas, setCantidadPreguntas] = useState(5)
   const [segundosPorPregunta, setSegundosPorPregunta] = useState(15)
@@ -39,8 +41,13 @@ export default function JuegoLocal() {
 
   const [preguntas, setPreguntas] = useState([])
   const [indicePregunta, setIndicePregunta] = useState(0)
+  const [rondaInicio, setRondaInicio] = useState(0)
   const [seleccionada, setSeleccionada] = useState(null)
   const [tiempoRestante, setTiempoRestante] = useState(null)
+
+  const [modoDesempate, setModoDesempate] = useState(false)
+  const [candidatosDesempate, setCandidatosDesempate] = useState([])
+  const [ganadorDesempate, setGanadorDesempate] = useState(null)
 
   useEffect(() => {
     cargarCurso()
@@ -62,14 +69,39 @@ export default function JuegoLocal() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tiempoRestante])
 
+  useEffect(() => {
+    if (fase !== 'transicion' || temas.length <= 1) {
+      setTemaSorteado(null)
+      return
+    }
+    const objetivo = preguntas[indicePregunta]?.tema_id
+    if (!objetivo) return
+
+    const idsTemas = temas.map((t) => t.id)
+    const pasos = 12
+    let cancelado = false
+
+    function paso(i) {
+      if (cancelado) return
+      const esUltimo = i === pasos - 1
+      setTemaSorteado(esUltimo ? objetivo : idsTemas[Math.floor(Math.random() * idsTemas.length)])
+      if (!esUltimo) setTimeout(() => paso(i + 1), 60 + i * 25)
+    }
+    paso(0)
+
+    return () => {
+      cancelado = true
+    }
+  }, [fase, indicePregunta, temas, preguntas])
+
   async function cargarCurso() {
     setCargando(true)
-    const { data } = await supabase
-      .from('cursos')
-      .select('id, nombre, cantidad_preguntas, fecha_fin')
-      .eq('id', id)
-      .single()
+    const [{ data }, { data: temasData }] = await Promise.all([
+      supabase.from('cursos').select('id, nombre, cantidad_preguntas, fecha_fin').eq('id', id).single(),
+      supabase.from('temas').select('id, nombre').eq('curso_id', id),
+    ])
     setCurso(data)
+    setTemas(temasData || [])
     setCantidadPreguntas(data?.cantidad_preguntas || 5)
     setCargando(false)
   }
@@ -86,13 +118,9 @@ export default function JuegoLocal() {
     setJugadores((prev) => prev.filter((_, idx) => idx !== i))
   }
 
-  async function comenzar() {
-    setCargandoPreguntas(true)
-    setError('')
-
+  async function elegirPreguntasLocal(cantidad) {
     const { data: temasData } = await supabase.from('temas').select('id').eq('curso_id', id)
     const temaIds = (temasData || []).map((t) => t.id)
-    const cantidad = cantidadPreguntas || 5
 
     const { data: disponibles } = await supabase
       .from('preguntas')
@@ -100,11 +128,7 @@ export default function JuegoLocal() {
       .in('tema_id', temaIds)
       .eq('activa', true)
 
-    if (!disponibles || disponibles.length === 0) {
-      setError('No hay preguntas activas con esos filtros.')
-      setCargandoPreguntas(false)
-      return
-    }
+    if (!disponibles || disponibles.length === 0) return []
 
     let pool = disponibles.filter((p) => !usadasIds.has(p.id))
     if (pool.length < cantidad) pool = disponibles
@@ -114,19 +138,67 @@ export default function JuegoLocal() {
 
     const { data: preguntasData } = await supabase
       .from('preguntas')
-      .select('id, enunciado, alternativas, correcta')
+      .select('id, enunciado, alternativas, correcta, tema_id')
       .in('id', ids)
 
     const porId = Object.fromEntries((preguntasData || []).map((p) => [p.id, p]))
-    setPreguntas(ids.map((pid) => mezclarAlternativas(porId[pid])))
+    return ids.map((pid) => mezclarAlternativas(porId[pid]))
+  }
+
+  async function comenzar() {
+    setCargandoPreguntas(true)
+    setError('')
+
+    const cantidad = (cantidadPreguntas || 5) * jugadores.length
+    const nuevasPreguntas = await elegirPreguntasLocal(cantidad)
+
+    if (nuevasPreguntas.length === 0) {
+      setError('No hay preguntas activas con esos filtros.')
+      setCargandoPreguntas(false)
+      return
+    }
+
+    setPreguntas(nuevasPreguntas)
     setIndicePregunta(0)
+    setRondaInicio(0)
+    setSeleccionada(null)
+    setModoDesempate(false)
+    setCandidatosDesempate([])
+    setGanadorDesempate(null)
+    setCargandoPreguntas(false)
+    setFase('transicion')
+  }
+
+  async function iniciarRondaDesempate(candidatos) {
+    setCargandoPreguntas(true)
+    const nuevasPreguntas = await elegirPreguntasLocal(candidatos.length)
+
+    if (nuevasPreguntas.length === 0) {
+      // No quedan preguntas para desempatar — el empate queda como está.
+      setCargandoPreguntas(false)
+      setFase('resultado')
+      return
+    }
+
+    const inicio = preguntas.length
+    setPreguntas((prev) => [...prev, ...nuevasPreguntas])
+    setModoDesempate(true)
+    setCandidatosDesempate(candidatos.map((c) => ({ nombre: c.nombre, puntaje: 0 })))
+    setIndicePregunta(inicio)
+    setRondaInicio(inicio)
     setSeleccionada(null)
     setCargandoPreguntas(false)
+    setFase('transicion')
+  }
+
+  function comenzarPregunta() {
     setFase('pregunta')
   }
 
   function jugadorActual() {
-    return jugadores[indicePregunta % jugadores.length]
+    const lista = modoDesempate ? candidatosDesempate : jugadores
+    if (lista.length === 0) return null
+    return lista[(indicePregunta - rondaInicio) % lista.length]
   }
 
   function responder(alternativaIndex) {
@@ -134,26 +206,45 @@ export default function JuegoLocal() {
     setSeleccionada(alternativaIndex)
 
     const pregunta = preguntas[indicePregunta]
-    if (alternativaIndex === pregunta.correcta) {
-      const idx = indicePregunta % jugadores.length
-      setJugadores((prev) => prev.map((j, i) => (i === idx ? { ...j, puntaje: j.puntaje + 1 } : j)))
-    }
+    const esCorrecta = alternativaIndex === pregunta.correcta
+    const listaActual = modoDesempate ? candidatosDesempate : jugadores
+    const idx = (indicePregunta - rondaInicio) % listaActual.length
+    const listaActualizada = esCorrecta
+      ? listaActual.map((p, i) => (i === idx ? { ...p, puntaje: p.puntaje + 1 } : p))
+      : listaActual
 
-    setTimeout(() => siguiente(), 1200)
+    if (modoDesempate) setCandidatosDesempate(listaActualizada)
+    else setJugadores(listaActualizada)
+
+    setTimeout(() => siguiente(listaActualizada), 1200)
   }
 
-  function siguiente() {
+  function siguiente(listaActualizada) {
     const siguienteIndice = indicePregunta + 1
-    if (siguienteIndice >= preguntas.length) {
+
+    if (siguienteIndice - rondaInicio >= listaActualizada.length) {
+      const maximo = Math.max(...listaActualizada.map((p) => p.puntaje))
+      const empatados = listaActualizada.filter((p) => p.puntaje === maximo)
+
+      if (empatados.length > 1) {
+        iniciarRondaDesempate(empatados)
+        return
+      }
+      if (modoDesempate) setGanadorDesempate(empatados[0].nombre)
       setFase('resultado')
       return
     }
+
     setIndicePregunta(siguienteIndice)
     setSeleccionada(null)
+    setFase('transicion')
   }
 
   function jugarDeNuevo() {
     setJugadores((prev) => prev.map((j) => ({ ...j, puntaje: 0 })))
+    setModoDesempate(false)
+    setCandidatosDesempate([])
+    setGanadorDesempate(null)
     setFase('configurar')
   }
 
@@ -181,7 +272,9 @@ export default function JuegoLocal() {
   const vencido = curso.fecha_fin && curso.fecha_fin < hoy
   const etiqueta = modo === 'equipos' ? 'equipo' : 'jugador'
   const etiquetaPlural = modo === 'equipos' ? 'equipos' : 'jugadores'
-  const turnoIdx = jugadores.length > 0 ? indicePregunta % jugadores.length : 0
+  const jugadoresActivos = modoDesempate ? candidatosDesempate : jugadores
+  const posicionEnRonda = indicePregunta - rondaInicio
+  const turnoIdx = jugadoresActivos.length > 0 ? posicionEnRonda % jugadoresActivos.length : 0
 
   return (
     <div className="min-h-screen bg-white">
@@ -265,7 +358,7 @@ export default function JuegoLocal() {
             </div>
 
             <label className="text-xs text-slate-500">
-              Preguntas por intento
+              Preguntas por {etiqueta}
               <input
                 type="number"
                 min={1}
@@ -274,6 +367,9 @@ export default function JuegoLocal() {
                 onChange={(e) => setCantidadPreguntas(Number(e.target.value))}
                 className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1"
               />
+              <span className="block text-slate-400 mt-0.5 font-normal">
+                Cada {etiqueta} responde esta cantidad — se van turnando.
+              </span>
             </label>
 
             <label className="text-xs text-slate-500">
@@ -300,26 +396,62 @@ export default function JuegoLocal() {
           </div>
         )}
 
+        {fase === 'transicion' && (
+          <>
+            <Marcador jugadores={jugadoresActivos} turnoIdx={turnoIdx} />
+            <div className="bg-white shadow-sm rounded-2xl p-8 text-center">
+              {modoDesempate && (
+                <p className="text-xs font-semibold text-brand-amber-700 mb-1">🔥 Desempate</p>
+              )}
+              <p className="text-xs text-slate-400 mb-3">
+                {modoDesempate
+                  ? `Pregunta ${posicionEnRonda + 1} de ${jugadoresActivos.length}`
+                  : `Pregunta ${indicePregunta + 1} de ${preguntas.length}`}
+              </p>
+
+              {temas.length > 1 && (
+                <div className="flex flex-wrap justify-center gap-2 mb-5">
+                  {temas.map((t) => (
+                    <span
+                      key={t.id}
+                      className={`text-xs px-3 py-1.5 rounded-full font-semibold transition-all duration-150 ${
+                        t.id === temaSorteado
+                          ? 'bg-brand-amber-500 text-white scale-110'
+                          : 'bg-slate-100 text-slate-500'
+                      }`}
+                    >
+                      {t.nombre}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div className="w-16 h-16 rounded-full bg-brand-blue-50 flex items-center justify-center text-2xl mx-auto mb-3">🎯</div>
+              <p className="text-lg font-semibold text-slate-800 mb-1">Turno de {jugadorActual()?.nombre}</p>
+              <p className="text-sm text-slate-500 mb-6">
+                Pásale el dispositivo. El cronómetro de {segundosPorPregunta}s empieza al tocar el botón.
+              </p>
+              <button
+                onClick={comenzarPregunta}
+                className="bg-brand-blue-500 text-white rounded-full px-8 py-3 text-sm font-semibold"
+              >
+                Estoy listo
+              </button>
+            </div>
+          </>
+        )}
+
         {fase === 'pregunta' && (
           <>
-            <div className="bg-white shadow-sm rounded-2xl p-2 mb-3">
-              <div className="flex flex-wrap gap-2">
-                {jugadores.map((j, i) => (
-                  <div
-                    key={i}
-                    className={`flex-1 min-w-[90px] rounded-lg px-3 py-2 text-center ${
-                      i === turnoIdx ? 'bg-brand-blue-500 text-white' : 'bg-slate-50 text-slate-700'
-                    }`}
-                  >
-                    <p className="text-xs font-medium truncate">{j.nombre}</p>
-                    <p className="text-xl font-bold leading-tight">{j.puntaje}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <Marcador jugadores={jugadoresActivos} turnoIdx={turnoIdx} />
 
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs text-slate-400">Pregunta {indicePregunta + 1} de {preguntas.length}</p>
+              <p className="text-xs text-slate-400">
+                {modoDesempate && '🔥 Desempate — '}
+                {modoDesempate
+                  ? `Pregunta ${posicionEnRonda + 1} de ${jugadoresActivos.length}`
+                  : `Pregunta ${indicePregunta + 1} de ${preguntas.length}`}
+              </p>
               <p className="text-sm font-medium text-brand-blue-700">🎯 Responde: {jugadorActual()?.nombre}</p>
             </div>
 
@@ -371,11 +503,25 @@ export default function JuegoLocal() {
         {fase === 'resultado' && (
           <div className="bg-white shadow-sm rounded-2xl p-5">
             <p className="text-sm font-medium text-slate-700 mb-3 text-center">🏁 Resultados</p>
+
+            {ganadorDesempate && (
+              <p className="text-xs font-semibold text-brand-amber-700 text-center mb-3">
+                🔥 {ganadorDesempate} ganó en el desempate
+              </p>
+            )}
+            {!ganadorDesempate && jugadores.filter((j) => j.puntaje === Math.max(...jugadores.map((x) => x.puntaje))).length > 1 && (
+              <p className="text-xs text-slate-400 text-center mb-3">
+                Empate — no había más preguntas disponibles para desempatar.
+              </p>
+            )}
+
             <div className="flex flex-col gap-2">
               {[...jugadores]
                 .sort((a, b) => b.puntaje - a.puntaje)
                 .map((j, i, ordenados) => {
-                  const esGanador = i === 0 && j.puntaje > (ordenados[1]?.puntaje ?? -1)
+                  const esGanador = ganadorDesempate
+                    ? j.nombre === ganadorDesempate
+                    : i === 0 && j.puntaje > (ordenados[1]?.puntaje ?? -1)
                   return (
                     <div
                       key={j.nombre + i}
@@ -387,7 +533,7 @@ export default function JuegoLocal() {
                         {esGanador ? '🏆 ' : `${i + 1}. `}
                         {j.nombre}
                       </span>
-                      <span className="text-sm font-medium text-slate-800">{j.puntaje}/{preguntas.length}</span>
+                      <span className="text-sm font-medium text-slate-800">{j.puntaje}/{cantidadPreguntas || 5}</span>
                     </div>
                   )
                 })}
@@ -411,6 +557,26 @@ export default function JuegoLocal() {
         )}
         </div>
       </main>
+    </div>
+  )
+}
+
+function Marcador({ jugadores, turnoIdx }) {
+  return (
+    <div className="bg-white shadow-sm rounded-2xl p-2 mb-3">
+      <div className="flex flex-wrap gap-2">
+        {jugadores.map((j, i) => (
+          <div
+            key={i}
+            className={`flex-1 min-w-[90px] rounded-lg px-3 py-2 text-center ${
+              i === turnoIdx ? 'bg-brand-blue-500 text-white' : 'bg-slate-50 text-slate-700'
+            }`}
+          >
+            <p className="text-xs font-medium truncate">{j.nombre}</p>
+            <p className="text-xl font-bold leading-tight">{j.puntaje}</p>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

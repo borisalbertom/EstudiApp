@@ -26,7 +26,7 @@ const CARACTERISTICAS = [
 export default function Landing() {
   return (
     <div className="min-h-screen bg-white">
-      <header className="sticky top-4 z-20 max-w-3xl mx-auto px-4">
+      <header className="sticky top-4 z-20 max-w-5xl mx-auto px-4">
         <div className="bg-white/90 backdrop-blur border border-slate-200 rounded-full shadow-sm px-5 py-3 flex items-center justify-between">
           <span className="font-semibold text-slate-800">🎯 EstudiApp</span>
           <div className="flex items-center gap-2">
