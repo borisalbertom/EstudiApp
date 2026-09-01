@@ -17,6 +17,7 @@ export default function AdminCursos() {
   const [nombre, setNombre] = useState('')
   const [descripcion, setDescripcion] = useState('')
   const [visibilidad, setVisibilidad] = useState('publico')
+  const [modoPrivado, setModoPrivado] = useState('amigos') // 'empresa' | 'amigos' — solo relevante para super admin
   const [organizacionId, setOrganizacionId] = useState('')
   const [tipoCurso, setTipoCurso] = useState('prueba') // 'certificacion' | 'prueba' | 'trivia'
   const [activarDuelosCert, setActivarDuelosCert] = useState(false)
@@ -125,6 +126,7 @@ export default function AdminCursos() {
     setNombre('')
     setDescripcion('')
     setVisibilidad('publico')
+    setModoPrivado('amigos')
     setOrganizacionId(esOrgAdmin && organizaciones.length === 1 ? organizaciones[0].id : '')
     setTipoCurso('prueba')
     setActivarDuelosCert(false)
@@ -142,7 +144,7 @@ export default function AdminCursos() {
   return (
     <div className="min-h-screen bg-white">
       <NavBar />
-      <main className="max-w-3xl mx-auto px-4 py-6 relative">
+      <main className="max-w-5xl mx-auto px-4 py-6 relative">
         <div
           className="absolute inset-x-0 top-0 h-28 pointer-events-none"
           style={{
@@ -213,7 +215,7 @@ export default function AdminCursos() {
             rows={2}
           />
           {!esOrgAdmin && (
-            <div className="flex gap-4 text-sm text-slate-600">
+            <div className="flex flex-col gap-1.5 text-sm text-slate-600">
               <label className="flex items-center gap-1.5">
                 <input
                   type="radio"
@@ -222,24 +224,41 @@ export default function AdminCursos() {
                 />
                 Público (gratis)
               </label>
+              {esSuperAdmin && (
+                <label className="flex items-center gap-1.5">
+                  <input
+                    type="radio"
+                    checked={visibilidad === 'privado' && modoPrivado === 'empresa'}
+                    onChange={() => {
+                      setVisibilidad('privado')
+                      setModoPrivado('empresa')
+                    }}
+                  />
+                  Privado (empresa)
+                </label>
+              )}
               <label className="flex items-center gap-1.5">
                 <input
                   type="radio"
-                  checked={visibilidad === 'privado'}
-                  onChange={() => setVisibilidad('privado')}
+                  checked={visibilidad === 'privado' && (!esSuperAdmin || modoPrivado === 'amigos')}
+                  onChange={() => {
+                    setVisibilidad('privado')
+                    setModoPrivado('amigos')
+                    setOrganizacionId('')
+                  }}
                 />
-                Privado {esSuperAdmin ? '(empresa)' : '(solo amigos que invites)'}
+                Privado (invitación a amigos)
               </label>
             </div>
           )}
-          {!esSuperAdmin && !esOrgAdmin && visibilidad === 'privado' && (
+          {!esOrgAdmin && visibilidad === 'privado' && (!esSuperAdmin || modoPrivado === 'amigos') && (
             <p className="text-xs text-slate-400 -mt-1.5">
               No aparecerá en el catálogo público. Después de crearla, invita amigos desde la pestaña
               "Invitar amigos".
             </p>
           )}
 
-          {(esSuperAdmin ? visibilidad === 'privado' : esOrgAdmin) && (
+          {((esSuperAdmin && visibilidad === 'privado' && modoPrivado === 'empresa') || esOrgAdmin) && (
             <select
               value={organizacionId}
               onChange={(e) => setOrganizacionId(e.target.value)}

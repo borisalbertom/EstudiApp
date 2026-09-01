@@ -99,7 +99,7 @@ export default function AdminCurso() {
 
       const { data: preguntasData } = await supabase
         .from('preguntas')
-        .select('id, tema_id, enunciado, alternativas, correcta, dificultad, activa')
+        .select('id, tema_id, enunciado, alternativas, correcta, dificultad, activa, imagen_url')
         .in('tema_id', temaIds)
         .order('creado_en', { ascending: false })
 
@@ -269,7 +269,7 @@ export default function AdminCurso() {
   async function cargarPreguntas(temaId) {
     const { data } = await supabase
       .from('preguntas')
-      .select('id, enunciado, alternativas, correcta, dificultad, activa')
+      .select('id, enunciado, alternativas, correcta, dificultad, activa, imagen_url')
       .eq('tema_id', temaId)
       .order('creado_en', { ascending: false })
     setPreguntasPorTema((prev) => ({ ...prev, [temaId]: data || [] }))
@@ -378,7 +378,7 @@ export default function AdminCurso() {
     return (
       <div className="min-h-screen bg-white">
         <NavBar />
-        <main className="max-w-3xl mx-auto px-4 py-6 text-sm text-slate-400">Cargando...</main>
+        <main className="max-w-5xl mx-auto px-4 py-6 text-sm text-slate-400">Cargando...</main>
       </div>
     )
   }
@@ -386,12 +386,16 @@ export default function AdminCurso() {
   const esAdminReal = esSuperAdmin || (curso?.organizacion_id && orgsAdmin.includes(curso.organizacion_id))
   const esCreadorPropio = !esAdminReal && curso?.creado_por === perfil?.id && !curso?.organizacion_id && !curso?.permite_individual
   const tieneAcceso = esAdminReal || esCreadorPropio
+  // A diferencia de esCreadorPropio, no excluye admins: un curso personal
+  // sin organización (privado con invitación, o público autogestionado)
+  // se puede invitar a amigos sin importar si el creador es admin.
+  const esCursoPersonalPropio = curso?.creado_por === perfil?.id && !curso?.organizacion_id && !curso?.permite_individual
 
   if (!tieneAcceso) {
     return (
       <div className="min-h-screen bg-white">
         <NavBar />
-        <main className="max-w-3xl mx-auto px-4 py-6">
+        <main className="max-w-5xl mx-auto px-4 py-6">
           <p className="text-sm text-slate-500">No tienes permisos para ver esta página.</p>
         </main>
       </div>
@@ -401,7 +405,7 @@ export default function AdminCurso() {
   return (
     <div className="min-h-screen bg-white">
       <NavBar />
-      <main className="max-w-3xl mx-auto px-4 py-6 relative">
+      <main className="max-w-5xl mx-auto px-4 py-6 relative">
         <div
           className="absolute inset-x-0 top-0 h-28 pointer-events-none"
           style={{
@@ -460,7 +464,7 @@ export default function AdminCurso() {
             { id: 'preguntas', label: 'Preguntas' },
             ...(curso?.organizacion_id
               ? [{ id: 'asignar', label: 'Asignar' }]
-              : esCreadorPropio
+              : esCursoPersonalPropio
                 ? [{ id: 'asignar', label: 'Invitar amigos' }]
                 : []),
           ].map((s) => (
@@ -980,12 +984,26 @@ function PreguntasTema({ temaId, preguntas, onCambio, onAlternarActiva }) {
   const [alternativas, setAlternativas] = useState(['', '', '', ''])
   const [correcta, setCorrecta] = useState(0)
   const [dificultad, setDificultad] = useState('facil')
+  const [imagenUrl, setImagenUrl] = useState('')
+  const [subiendoImagen, setSubiendoImagen] = useState(false)
   const [creando, setCreando] = useState(false)
   const [error, setError] = useState('')
   const [editandoId, setEditandoId] = useState(null)
 
   function actualizarAlternativa(i, valor) {
     setAlternativas((prev) => prev.map((a, idx) => (idx === i ? valor : a)))
+  }
+
+  async function subirImagen(file) {
+    if (!file) return
+    setSubiendoImagen(true)
+    const ruta = `${temaId}/${Date.now()}-${file.name}`
+    const { error: errorSubida } = await supabase.storage.from('preguntas-imagenes').upload(ruta, file)
+    if (!errorSubida) {
+      const { data } = supabase.storage.from('preguntas-imagenes').getPublicUrl(ruta)
+      setImagenUrl(data.publicUrl)
+    }
+    setSubiendoImagen(false)
   }
 
   async function crearPregunta(e) {
@@ -1003,6 +1021,7 @@ function PreguntasTema({ temaId, preguntas, onCambio, onAlternarActiva }) {
       alternativas: alternativas.map((a) => a.trim()),
       correcta,
       dificultad,
+      imagen_url: imagenUrl || null,
       activa: true,
     })
 
@@ -1012,6 +1031,7 @@ function PreguntasTema({ temaId, preguntas, onCambio, onAlternarActiva }) {
       setAlternativas(['', '', '', ''])
       setCorrecta(0)
       setDificultad('facil')
+      setImagenUrl('')
       onCambio()
     }
     setCreando(false)
@@ -1027,6 +1047,29 @@ function PreguntasTema({ temaId, preguntas, onCambio, onAlternarActiva }) {
           onChange={(e) => setEnunciado(e.target.value)}
           className="border border-slate-300 rounded-lg px-3 py-2 text-sm"
         />
+
+        <div className="flex items-center gap-2">
+          {imagenUrl ? (
+            <div className="flex items-center gap-2">
+              <img src={imagenUrl} alt="" className="w-14 h-14 object-cover rounded-lg border border-slate-200" />
+              <button type="button" onClick={() => setImagenUrl('')} className="text-xs text-slate-400 hover:text-red-500">
+                Quitar imagen
+              </button>
+            </div>
+          ) : (
+            <label className="text-xs bg-white text-brand-blue-700 border-[1.5px] border-brand-blue-500 px-3 py-1.5 rounded-full font-semibold cursor-pointer inline-block">
+              {subiendoImagen ? 'Subiendo...' : '+ Agregar imagen (opcional)'}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={subiendoImagen}
+                onChange={(e) => subirImagen(e.target.files?.[0])}
+              />
+            </label>
+          )}
+        </div>
+
         {alternativas.map((alt, i) => (
           <div key={i} className="flex items-center gap-2">
             <input
@@ -1074,6 +1117,7 @@ function PreguntasTema({ temaId, preguntas, onCambio, onAlternarActiva }) {
             <PreguntaEdicion
               key={p.id}
               pregunta={p}
+              temaId={temaId}
               onCancelar={() => setEditandoId(null)}
               onGuardado={() => {
                 setEditandoId(null)
@@ -1083,7 +1127,12 @@ function PreguntasTema({ temaId, preguntas, onCambio, onAlternarActiva }) {
           ) : (
             <div key={p.id} className="border border-slate-200 rounded-lg p-3">
               <div className="flex items-start justify-between gap-2">
-                <p className="text-sm text-slate-700">{p.enunciado}</p>
+                <div className="flex items-start gap-2 min-w-0">
+                  {p.imagen_url && (
+                    <img src={p.imagen_url} alt="" className="w-10 h-10 object-cover rounded-md border border-slate-200 shrink-0" />
+                  )}
+                  <p className="text-sm text-slate-700">{p.enunciado}</p>
+                </div>
                 <div className="flex gap-2 shrink-0">
                   <button onClick={() => setEditandoId(p.id)} className="text-xs text-slate-400 hover:text-slate-700">
                     Editar
@@ -1109,16 +1158,30 @@ function PreguntasTema({ temaId, preguntas, onCambio, onAlternarActiva }) {
   )
 }
 
-function PreguntaEdicion({ pregunta, onCancelar, onGuardado }) {
+function PreguntaEdicion({ pregunta, temaId, onCancelar, onGuardado }) {
   const [enunciado, setEnunciado] = useState(pregunta.enunciado)
   const [alternativas, setAlternativas] = useState([...pregunta.alternativas])
   const [correcta, setCorrecta] = useState(pregunta.correcta)
   const [dificultad, setDificultad] = useState(pregunta.dificultad)
+  const [imagenUrl, setImagenUrl] = useState(pregunta.imagen_url || '')
+  const [subiendoImagen, setSubiendoImagen] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
 
   function actualizarAlternativa(i, valor) {
     setAlternativas((prev) => prev.map((a, idx) => (idx === i ? valor : a)))
+  }
+
+  async function subirImagen(file) {
+    if (!file) return
+    setSubiendoImagen(true)
+    const ruta = `${temaId}/${Date.now()}-${file.name}`
+    const { error: errorSubida } = await supabase.storage.from('preguntas-imagenes').upload(ruta, file)
+    if (!errorSubida) {
+      const { data } = supabase.storage.from('preguntas-imagenes').getPublicUrl(ruta)
+      setImagenUrl(data.publicUrl)
+    }
+    setSubiendoImagen(false)
   }
 
   async function guardar() {
@@ -1136,6 +1199,7 @@ function PreguntaEdicion({ pregunta, onCancelar, onGuardado }) {
         alternativas: alternativas.map((a) => a.trim()),
         correcta,
         dificultad,
+        imagen_url: imagenUrl || null,
       })
       .eq('id', pregunta.id)
 
@@ -1155,6 +1219,29 @@ function PreguntaEdicion({ pregunta, onCancelar, onGuardado }) {
         onChange={(e) => setEnunciado(e.target.value)}
         className="border border-slate-300 rounded-lg px-3 py-2 text-sm"
       />
+
+      <div className="flex items-center gap-2">
+        {imagenUrl ? (
+          <div className="flex items-center gap-2">
+            <img src={imagenUrl} alt="" className="w-14 h-14 object-cover rounded-lg border border-slate-200" />
+            <button type="button" onClick={() => setImagenUrl('')} className="text-xs text-slate-400 hover:text-red-500">
+              Quitar imagen
+            </button>
+          </div>
+        ) : (
+          <label className="text-xs bg-white text-brand-blue-700 border-[1.5px] border-brand-blue-500 px-3 py-1.5 rounded-full font-semibold cursor-pointer inline-block">
+            {subiendoImagen ? 'Subiendo...' : '+ Agregar imagen (opcional)'}
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              disabled={subiendoImagen}
+              onChange={(e) => subirImagen(e.target.files?.[0])}
+            />
+          </label>
+        )}
+      </div>
+
       {alternativas.map((alt, i) => (
         <div key={i} className="flex items-center gap-2">
           <input

@@ -148,7 +148,7 @@ export default function CursoDetalle() {
     return (
       <div className="min-h-screen bg-slate-50">
         <NavBar />
-        <main className="max-w-3xl mx-auto px-4 py-6 text-sm text-slate-400">Cargando curso...</main>
+        <main className="max-w-5xl mx-auto px-4 py-6 text-sm text-slate-400">Cargando curso...</main>
       </div>
     )
   }
@@ -157,7 +157,7 @@ export default function CursoDetalle() {
     return (
       <div className="min-h-screen bg-slate-50">
         <NavBar />
-        <main className="max-w-3xl mx-auto px-4 py-6">
+        <main className="max-w-5xl mx-auto px-4 py-6">
           <p className="text-sm text-slate-500">No se encontró el curso.</p>
           <Link to="/" className="text-sm text-brand-blue-700">Volver al inicio</Link>
         </main>
@@ -197,7 +197,7 @@ export default function CursoDetalle() {
   return (
     <div className="min-h-screen bg-white">
       <NavBar />
-      <main className="max-w-3xl mx-auto px-4 py-6 relative">
+      <main className="max-w-5xl mx-auto px-4 py-6 relative">
         <div
           className="absolute inset-x-0 top-0 h-28 pointer-events-none"
           style={{

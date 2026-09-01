@@ -138,7 +138,7 @@ export default function JuegoLocal() {
 
     const { data: preguntasData } = await supabase
       .from('preguntas')
-      .select('id, enunciado, alternativas, correcta, tema_id')
+      .select('id, enunciado, alternativas, correcta, tema_id, imagen_url')
       .in('id', ids)
 
     const porId = Object.fromEntries((preguntasData || []).map((p) => [p.id, p]))
@@ -252,7 +252,7 @@ export default function JuegoLocal() {
     return (
       <div className="min-h-screen bg-white">
         <NavBar />
-        <main className="max-w-3xl mx-auto px-4 py-6 text-sm text-slate-400">Cargando...</main>
+        <main className="max-w-5xl mx-auto px-4 py-6 text-sm text-slate-400">Cargando...</main>
       </div>
     )
   }
@@ -261,7 +261,7 @@ export default function JuegoLocal() {
     return (
       <div className="min-h-screen bg-white">
         <NavBar />
-        <main className="max-w-3xl mx-auto px-4 py-6">
+        <main className="max-w-5xl mx-auto px-4 py-6">
           <p className="text-sm text-slate-500">No se encontró la trivia.</p>
         </main>
       </div>
@@ -279,7 +279,7 @@ export default function JuegoLocal() {
   return (
     <div className="min-h-screen bg-white">
       <NavBar />
-      <main className="max-w-3xl mx-auto px-4 py-6 relative">
+      <main className="max-w-5xl mx-auto px-4 py-6 relative">
         <div
           className="absolute inset-x-0 top-0 h-28 pointer-events-none"
           style={{
@@ -472,6 +472,9 @@ export default function JuegoLocal() {
             )}
 
             <div className="bg-white shadow-sm rounded-2xl p-5">
+              {preguntas[indicePregunta]?.imagen_url && (
+                <img src={preguntas[indicePregunta].imagen_url} alt="" className="max-w-full rounded-lg mb-4 border border-slate-100" />
+              )}
               <p className="font-medium text-slate-800 mb-4">{preguntas[indicePregunta]?.enunciado}</p>
               <div className="flex flex-col gap-2">
                 {preguntas[indicePregunta]?.alternativas?.map((alt, i) => {

@@ -113,11 +113,17 @@ export default function ListaCursos({ tipo }) {
 
   const titulo = tipo === 'curso' ? 'Cursos' : tipo === 'prueba' ? 'Pruebas' : 'Trivias'
   const singular = tipo === 'curso' ? 'curso' : tipo === 'prueba' ? 'prueba' : 'trivia'
+  const descripcion =
+    tipo === 'curso'
+      ? 'Certificaciones con material de estudio y examen final — avanza a tu ritmo y rinde el examen cuando estés listo.'
+      : tipo === 'prueba'
+        ? 'Prepárate en serio: practica solo a tu ritmo o reta a un amigo a un duelo para medirte antes de una prueba real.'
+        : 'Puro juego entre amigos: reta a alguien de forma asíncrona o juega en el mismo dispositivo con más gente, sin presión.'
 
   return (
     <div className="min-h-screen bg-white">
       <NavBar />
-      <main className="max-w-3xl mx-auto px-4 py-6 relative">
+      <main className="max-w-5xl mx-auto px-4 py-6 relative">
         <div
           className="absolute inset-x-0 top-0 h-28 pointer-events-none"
           style={{
@@ -139,6 +145,7 @@ export default function ListaCursos({ tipo }) {
             </Link>
           )}
         </div>
+        <p className="text-sm text-slate-500 mb-6">{descripcion}</p>
 
         {asignados.length > 0 && (
           <div className="mb-6">
@@ -156,7 +163,7 @@ export default function ListaCursos({ tipo }) {
                     <p className="text-xs text-slate-500">Privado · {c.organizaciones?.nombre_empresa || 'Empresa'}</p>
                   </div>
                   <span className="text-xs bg-brand-blue-500 text-white px-2.5 py-1 rounded-full font-semibold">
-                    {tipo === 'trivia' ? 'Ingresar' : 'Ver'}
+                    {tipo === 'trivia' ? 'Jugar' : 'Ver'}
                   </span>
                 </Link>
               ))}
@@ -232,7 +239,7 @@ export default function ListaCursos({ tipo }) {
                     to={`/curso/${c.id}`}
                     className="text-xs bg-white text-brand-blue-700 border-[1.5px] border-brand-blue-500 px-2.5 py-1 rounded-full font-semibold"
                   >
-                    {tipo === 'trivia' ? 'Ingresar' : 'Ver'}
+                    {tipo === 'trivia' ? 'Jugar' : 'Ver'}
                   </Link>
                 </div>
               </div>

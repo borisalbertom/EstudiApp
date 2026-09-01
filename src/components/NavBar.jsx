@@ -98,10 +98,10 @@ export default function NavBar() {
 
   return (
     <header className="bg-white shadow-sm sticky top-0 z-10 relative">
-      <div className="max-w-3xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between gap-2">
+      <div className="max-w-5xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between gap-2">
         <span className="font-semibold text-slate-800 text-sm sm:text-base shrink-0">🎯 EstudiApp</span>
 
-        <nav className="hidden sm:flex items-center gap-1 text-sm overflow-x-auto">
+        <nav className="hidden lg:flex items-center gap-1 text-sm">
           {links.map((l) => (
             <NavLink
               key={l.to}
@@ -141,7 +141,7 @@ export default function NavBar() {
 
         <button
           onClick={() => setMenuAbierto((v) => !v)}
-          className="sm:hidden relative shrink-0 text-slate-500 hover:text-slate-800 p-1.5 -mr-1.5"
+          className="lg:hidden relative shrink-0 text-slate-500 hover:text-slate-800 p-1.5 -mr-1.5"
           aria-label={menuAbierto ? 'Cerrar menú' : 'Abrir menú'}
         >
           <span className="text-lg leading-none">{menuAbierto ? '✕' : '☰'}</span>
@@ -159,7 +159,7 @@ export default function NavBar() {
       />
 
       {menuAbierto && (
-        <nav className="sm:hidden border-t border-slate-100 px-3 py-2 flex flex-col text-sm">
+        <nav className="lg:hidden border-t border-slate-100 px-3 py-2 flex flex-col text-sm">
           {links.map((l) => (
             <NavLink
               key={l.to}

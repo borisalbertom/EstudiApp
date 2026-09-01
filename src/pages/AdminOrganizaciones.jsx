@@ -106,7 +106,7 @@ export default function AdminOrganizaciones() {
     return (
       <div className="min-h-screen bg-white">
         <NavBar />
-        <main className="max-w-3xl mx-auto px-4 py-6">
+        <main className="max-w-5xl mx-auto px-4 py-6">
           <p className="text-sm text-slate-500">No tienes permisos para ver esta página.</p>
         </main>
       </div>
@@ -116,7 +116,7 @@ export default function AdminOrganizaciones() {
   return (
     <div className="min-h-screen bg-white">
       <NavBar />
-      <main className="max-w-3xl mx-auto px-4 py-6">
+      <main className="max-w-5xl mx-auto px-4 py-6">
         <p className="text-lg font-medium text-slate-800 mb-4">Administrar organizaciones</p>
         <AdminSubNav />
 

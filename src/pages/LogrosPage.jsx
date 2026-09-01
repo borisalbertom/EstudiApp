@@ -29,7 +29,7 @@ export default function LogrosPage() {
     return (
       <div className="min-h-screen bg-white">
         <NavBar />
-        <main className="max-w-3xl mx-auto px-4 py-6 text-sm text-slate-400">Cargando logros...</main>
+        <main className="max-w-5xl mx-auto px-4 py-6 text-sm text-slate-400">Cargando logros...</main>
       </div>
     )
   }
@@ -41,7 +41,7 @@ export default function LogrosPage() {
   return (
     <div className="min-h-screen bg-white">
       <NavBar />
-      <main className="max-w-3xl mx-auto px-4 py-6 relative">
+      <main className="max-w-5xl mx-auto px-4 py-6 relative">
         <div
           className="absolute inset-x-0 top-0 h-28 pointer-events-none"
           style={{

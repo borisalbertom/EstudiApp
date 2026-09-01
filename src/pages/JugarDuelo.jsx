@@ -84,7 +84,7 @@ export default function JugarDuelo() {
 
     const { data: preguntasData } = await supabase
       .from('duelo_preguntas')
-      .select('orden, pregunta_id, preguntas(id, enunciado, alternativas, correcta)')
+      .select('orden, pregunta_id, preguntas(id, enunciado, alternativas, correcta, imagen_url)')
       .eq('duelo_id', id)
       .order('orden', { ascending: true })
 
@@ -223,7 +223,7 @@ export default function JugarDuelo() {
     return (
       <div className="min-h-screen bg-white">
         <NavBar />
-        <main className="max-w-3xl mx-auto px-4 py-6 text-sm text-slate-400">Cargando duelo...</main>
+        <main className="max-w-5xl mx-auto px-4 py-6 text-sm text-slate-400">Cargando duelo...</main>
       </div>
     )
   }
@@ -232,7 +232,7 @@ export default function JugarDuelo() {
     return (
       <div className="min-h-screen bg-white">
         <NavBar />
-        <main className="max-w-3xl mx-auto px-4 py-6">
+        <main className="max-w-5xl mx-auto px-4 py-6">
           <p className="text-sm text-red-500">{error}</p>
           <Link to="/" className="text-sm text-brand-blue-700">Volver al inicio</Link>
         </main>
@@ -247,7 +247,7 @@ export default function JugarDuelo() {
   return (
     <div className="min-h-screen bg-white">
       <NavBar />
-      <main className="max-w-3xl mx-auto px-4 py-6 relative">
+      <main className="max-w-5xl mx-auto px-4 py-6 relative">
         <div
           className="absolute inset-x-0 top-0 h-28 pointer-events-none"
           style={{
@@ -304,6 +304,9 @@ export default function JugarDuelo() {
           </div>
         ) : (
           <div className="bg-white shadow-sm rounded-2xl p-5">
+            {pregunta?.imagen_url && (
+              <img src={pregunta.imagen_url} alt="" className="max-w-full rounded-lg mb-4 border border-slate-100" />
+            )}
             <p className="font-medium text-slate-800 mb-4">{pregunta?.enunciado}</p>
 
             <div className="flex flex-col gap-2">
